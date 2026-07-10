@@ -160,7 +160,7 @@ python collect_faces.py --list
 - Ensure good lighting conditions
 - Avoid accessories that cover the face
 
-### 2. Train Face Recognition Model
+### 3. Train Face Recognition Model
 
 After collecting face data, train the KNN model:
 
@@ -175,7 +175,29 @@ This will:
 - Train KNN classifier
 - Save model to `models/trained_knn_model.pkl`
 
-### 3. Run the Main System
+### 4. Configure Email Alerts ⚠️ IMPORTANT
+
+**Set up email notifications before running the system:**
+
+```bash
+# Read the detailed email setup guide
+cat EMAIL_SETUP_GUIDE.md
+
+# Test your email configuration
+python test_email_config.py
+```
+
+The system is configured to send alerts to:
+- **Teacher**: srimidhuna47@gmail.com
+- **Parent**: 02midhuna@gmail.com
+
+**Alert Triggers:**
+- 😴 Eyes closed for **5 seconds** → Sleeping alert
+- 🗣️ Mouth moving for **5 seconds** → Talking alert  
+- 🚫 No blink with eyes open → Proxy attendance alert
+- 📱 Phone detected → Immediate mobile usage alert
+
+### 5. Run the Main System
 
 Start the complete monitoring system:
 
@@ -207,20 +229,33 @@ python main.py --config config/custom_config.yaml
 
 Edit `config/config.yaml` to customize system behavior:
 
+### Your Current Configuration:
+
 ```yaml
-# Face Recognition Threshold (0-1)
-recognition_threshold: 0.6
+# Behavior Thresholds (Configured for your requirements)
+sleep_duration_threshold: 5     # Alert if eyes closed for 5 seconds
+talk_duration_threshold: 5      # Alert if mouth moving for 5 seconds
+phone_usage_threshold: 1        # Alert immediately when phone detected
 
-# Behavior Thresholds
-sleep_duration_threshold: 60    # seconds
-talk_duration_threshold: 120    # seconds
+# Frame Detection
+sleep_frames: 150              # 5 seconds at 30 FPS
+talk_frames: 150               # 5 seconds at 30 FPS
 
-# Alert Settings
-alert_config:
-  enable_console_alerts: true
-  enable_email_alerts: false
-  alert_cooldown: 300           # seconds
+# Email Notifications
+enable_email_alerts: true
+email_sender: "srimidhuna47@gmail.com"    # Teacher
+email_recipients:
+  - "srimidhuna47@gmail.com"              # Teacher notification
+  - "02midhuna@gmail.com"                 # Parent notification
 ```
+
+### Alert Rules:
+- ✅ **Eyes closed for 5 seconds** → SLEEPING alert sent to teacher & parent
+- ✅ **Mouth moving for 5 seconds** → TALKING alert sent to teacher & parent
+- ✅ **No blink with eyes open** → PROXY ATTENDANCE alert sent
+- ✅ **Rectangular object detected** → MOBILE PHONE alert sent immediately
+
+**Important**: Follow `EMAIL_SETUP_GUIDE.md` to configure Gmail App Password!
 
 ## 🧪 Testing Individual Modules
 
