@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project Specific
+data/students/*/
+data/attendance_logs/
+data/behavior_logs/
+data/alerts/
+data/reports/
+models/trained_knn_model.pkl
+models/yolov8*.pt
+
+# Keep directory structure
+!data/students/.gitkeep
+!data/attendance_logs/.gitkeep
+!data/behavior_logs/.gitkeep
+!data/alerts/.gitkeep
+!data/reports/.gitkeep
+!models/.gitkeep
+
+# Logs
+*.log
+
+# Config with sensitive data
+config/*_private.yaml
+config/email_credentials.yaml
+
+# Temporary files
+*.tmp
+*.bak
+
+# Video files (if testing)
+*.mp4
+*.avi
+*.mov
+
+# Large model files
+*.h5
+*.pb
+*.onnx

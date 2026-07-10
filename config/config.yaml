@@ -1,0 +1,69 @@
+# Smart Classroom Monitoring System Configuration
+
+# Face Detection Settings
+face_detection_confidence: 0.6
+
+# Face Recognition Settings
+model_path: "models/trained_knn_model.pkl"
+recognition_threshold: 0.6
+
+# Anti-Proxy Verification Settings
+blink_threshold: 0.21
+required_blinks: 2
+
+# Behavior Analysis Settings
+sleep_ear_threshold: 0.22
+sleep_frames: 25
+talk_mar_threshold: 0.6
+talk_frames: 3
+
+# Phone Detection Settings
+yolo_model: "yolov8n.pt"
+phone_confidence: 0.5
+
+# Alert System Configuration
+alert_config:
+  # Thresholds (in seconds)
+  sleep_duration_threshold: 60      # Alert if sleeping > 1 minute
+  talk_duration_threshold: 120      # Alert if talking > 2 minutes
+  phone_usage_threshold: 30         # Alert if phone detected > 30 seconds
+  
+  # Count thresholds
+  max_violations_per_session: 3     # Alert if > 3 violations
+  
+  # Alert cooldown (seconds)
+  alert_cooldown: 300                # 5 minutes between same alerts
+  
+  # Notification channels
+  enable_console_alerts: true
+  enable_file_alerts: true
+  enable_email_alerts: false
+  enable_sound_alerts: false
+  
+  # Email configuration (if enabled)
+  email_smtp_server: "smtp.gmail.com"
+  email_smtp_port: 587
+  email_sender: ""
+  email_password: ""
+  email_recipients: []
+
+# Student Database
+students:
+  - name: "John Doe"
+    email: "john.doe@school.edu"
+    parent_email: "parent.john@email.com"
+  - name: "Jane Smith"
+    email: "jane.smith@school.edu"
+    parent_email: "parent.jane@email.com"
+
+# Class Schedule
+class_schedule:
+  monday:
+    - start: "09:00"
+      end: "10:30"
+      subject: "Mathematics"
+  tuesday:
+    - start: "09:00"
+      end: "10:30"
+      subject: "Physics"
+  # Add more schedule as needed
