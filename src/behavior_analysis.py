@@ -245,7 +245,7 @@ class BehaviorAnalyzer:
                 behavior['ear_frame_counter'] = 0
                 behavior['sleep_start_time'] = None
             
-            # Talking detection logic - MUCH STRICTER with DEBUG
+            # Talking detection logic - MUCH STRICTER (NO DEBUG SPAM)
             if len(behavior['mar_history']) >= 15:
                 # Calculate standard deviation and range of recent MAR values
                 recent_mars = list(behavior['mar_history'])[-15:]
@@ -254,14 +254,6 @@ class BehaviorAnalyzer:
                 mar_max = np.max(recent_mars)
                 mar_min = np.min(recent_mars)
                 mar_range = mar_max - mar_min
-                
-                # DEBUG: Print MAR values once per second
-                if not hasattr(self, '_last_debug_time'):
-                    self._last_debug_time = datetime.now()
-                
-                if (datetime.now() - self._last_debug_time).total_seconds() >= 1.0:
-                    print(f"[MAR DEBUG] {student_name}: std={mar_std:.4f} range={mar_range:.4f} mean={mar_mean:.4f}")
-                    self._last_debug_time = datetime.now()
                 
                 # VERY STRICT THRESHOLDS - All three must be true
                 is_mouth_moving = mar_std > 0.12  # Very high variability required
@@ -275,12 +267,10 @@ class BehaviorAnalyzer:
                         if not behavior['is_talking']:
                             behavior['is_talking'] = True
                             behavior['talk_start_time'] = datetime.now()
-                            print(f"🗣️ TALKING DETECTED: {student_name} (std:{mar_std:.4f}, range:{mar_range:.4f})")
                             self.log_behavior(student_name, 'talking', 'started')
                 else:
                     if behavior['is_talking']:
                         behavior['is_talking'] = False
-                        print(f"✓ Talking stopped: {student_name}")
                         self.log_behavior(student_name, 'talking', 'stopped')
                     behavior['mar_frame_counter'] = 0
             else:

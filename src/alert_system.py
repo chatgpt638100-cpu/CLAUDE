@@ -323,8 +323,6 @@ class AlertSystem:
         Args:
             alert: Alert dictionary
         """
-        print(f"\n[ALERT SYSTEM] Processing alert: {alert['type']} for {alert['student_name']}")
-        
         # Console alert
         if self.config['enable_console_alerts']:
             self._send_console_alert(alert)
@@ -335,10 +333,7 @@ class AlertSystem:
         
         # Email alert
         if self.config['enable_email_alerts']:
-            print(f"[ALERT SYSTEM] Attempting to send email...")
             self._send_email_alert(alert)
-        else:
-            print(f"[ALERT SYSTEM] Email alerts DISABLED in config")
         
         # Sound alert
         if self.config['enable_sound_alerts']:
@@ -388,12 +383,13 @@ class AlertSystem:
     def _send_email_alert(self, alert):
         """Send alert via email with personalized greeting"""
         if not self.config['email_sender'] or not self.config['email_recipients']:
-            print("⚠ Email alerts disabled: No sender or recipients configured")
             return
         
         if self.config['email_password'] == 'YOUR_APP_PASSWORD_HERE' or not self.config['email_password']:
-            print("⚠ Email alerts disabled: Please configure Gmail App Password in config/config.yaml")
-            print("   Visit: https://myaccount.google.com/apppasswords to generate one")
+            # Only print this warning once
+            if not hasattr(self, '_email_warning_shown'):
+                print("⚠ Email alerts disabled: Configure Gmail App Password in config/config.yaml")
+                self._email_warning_shown = True
             return
         
         try:
@@ -447,14 +443,12 @@ For any questions, please contact the school administration.
                 server.send_message(msg)
                 server.quit()
                 
-                print(f"✓ Email alert sent to {recipient} (Alert #{alert['id']})")
+                print(f"✓ Email sent to {recipient}")
         
         except smtplib.SMTPAuthenticationError:
-            print(f"✗ Email authentication failed! Check your Gmail App Password in config.yaml")
-            print(f"   Current sender: {self.config['email_sender']}")
-            print(f"   Generate App Password at: https://myaccount.google.com/apppasswords")
+            print(f"✗ Email authentication failed! Check Gmail App Password in config.yaml")
         except Exception as e:
-            print(f"✗ Failed to send email alert: {e}")
+            print(f"✗ Email error: {e}")
     
     def _play_alert_sound(self, alert):
         """Play alert sound (platform-dependent)"""
