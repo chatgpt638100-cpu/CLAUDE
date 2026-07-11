@@ -202,7 +202,7 @@ class SmartClassroomMonitor:
         """Draw all information overlays on frame"""
         output_frame = frame.copy()
         
-        # Draw recognized faces
+        # Draw recognized faces with IMPROVED DISPLAY
         for face in recognized_faces:
             x, y, w, h = face['bbox']
             name = face['name']
@@ -211,18 +211,66 @@ class SmartClassroomMonitor:
             # Color based on recognition
             color = (0, 255, 0) if name != 'Unknown' else (0, 165, 255)
             
-            # Draw bounding box
-            cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 2)
+            # Draw THICKER rectangular box around face
+            cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 3)
             
-            # Draw name tag
-            label = f"{name} ({confidence:.2f})"
+            # Draw student name in a BETTER way - with background
+            label = name  # Just the name, no confidence
+            
+            # Calculate text size for background
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.7
+            font_thickness = 2
+            (text_width, text_height), baseline = cv2.getTextSize(
+                label, font, font_scale, font_thickness
+            )
+            
+            # Draw background rectangle for text
+            cv2.rectangle(
+                output_frame,
+                (x, y - text_height - 10),
+                (x + text_width + 10, y),
+                color,
+                -1  # Filled rectangle
+            )
+            
+            # Draw name on top of face box (white text on colored background)
             cv2.putText(
-                output_frame, label, (x, y - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
+                output_frame, label, (x + 5, y - 5),
+                font, font_scale, (255, 255, 255), font_thickness
             )
         
-        # Draw behavior overlays
-        output_frame = self.behavior_analyzer.draw_behavior_overlay(output_frame, behavior_results)
+        # Draw behavior overlays (but don't duplicate names)
+        for result in behavior_results:
+            face_center = result.get('face_center')
+            if not face_center:
+                continue
+                
+            x, y = face_center
+            
+            # Only draw behavior status (sleeping/talking) below the name
+            status_y = y + 30  # Position below face center
+            
+            # Sleeping status
+            if result.get('is_sleeping'):
+                sleep_text = "SLEEPING"
+                if result.get('sleep_duration'):
+                    sleep_text += f" ({result['sleep_duration']:.0f}s)"
+                cv2.putText(
+                    output_frame, sleep_text, (x - 50, status_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2
+                )
+                status_y += 25
+            
+            # Talking status
+            if result.get('is_talking'):
+                talk_text = "TALKING"
+                if result.get('talk_duration'):
+                    talk_text += f" ({result['talk_duration']:.0f}s)"
+                cv2.putText(
+                    output_frame, talk_text, (x - 50, status_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2
+                )
         
         # Draw phone detections
         if phone_incidents:

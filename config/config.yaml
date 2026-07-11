@@ -14,12 +14,12 @@ required_blinks: 2                     # If no blink detected with eyes open = p
 # Behavior Analysis Settings
 sleep_ear_threshold: 0.22
 sleep_frames: 150          # 5 seconds at 30 FPS (5 * 30 = 150 frames)
-talk_mar_threshold: 0.6
+talk_mar_threshold: 0.75   # INCREASED from 0.6 to reduce false positives (mouth must be MORE open)
 talk_frames: 150           # 5 seconds at 30 FPS (5 * 30 = 150 frames)
 
 # Phone Detection Settings
 yolo_model: "yolov8n.pt"
-phone_confidence: 0.5
+phone_confidence: 0.6      # INCREASED from 0.5 to reduce false positives
 
 # Alert System Configuration
 alert_config:
