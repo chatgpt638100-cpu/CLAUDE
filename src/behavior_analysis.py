@@ -245,33 +245,21 @@ class BehaviorAnalyzer:
                 behavior['ear_frame_counter'] = 0
                 behavior['sleep_start_time'] = None
             
-            # Talking detection logic - EXTREMELY STRICT
-            if len(behavior['mar_history']) >= 20:  # Need more history
-                # Calculate standard deviation and range of recent MAR values
-                recent_mars = list(behavior['mar_history'])[-20:]
-                mar_std = np.std(recent_mars)
-                mar_mean = np.mean(recent_mars)
+            # Talking detection logic - DETECT TEETH SHOWING (WIDE MOUTH OPENING)
+            if len(behavior['mar_history']) >= 10:  # Need at least 10 frames
+                # Calculate recent MAR values
+                recent_mars = list(behavior['mar_history'])[-10:]
                 mar_max = np.max(recent_mars)
-                mar_min = np.min(recent_mars)
-                mar_range = mar_max - mar_min
+                mar_current = recent_mars[-1]
                 
-                # Count how many times mouth opens significantly (talking = repeated opening)
-                threshold_crossings = 0
-                for i in range(1, len(recent_mars)):
-                    # Mouth opening significantly
-                    if recent_mars[i] > 0.35 and recent_mars[i-1] < 0.30:
-                        threshold_crossings += 1
+                # TALKING = Mouth opens VERY WIDE (teeth showing)
+                # Wide open mouth has MAR > 0.5 (much higher than normal)
+                is_mouth_very_wide = mar_current > 0.5  # Teeth showing threshold
                 
-                # EXTREMELY STRICT THRESHOLDS - ALL conditions must be true
-                is_mouth_moving = mar_std > 0.15  # Even higher variability (was 0.12)
-                has_wide_range = mar_range > 0.30  # Even wider opening (was 0.25)
-                is_mouth_open_enough = mar_mean > 0.35  # Much higher mean (was 0.30)
-                has_repeated_openings = threshold_crossings >= 3  # Must open 3+ times
-                
-                # ALL FOUR conditions required for talking
-                if is_mouth_moving and has_wide_range and is_mouth_open_enough and has_repeated_openings:
+                if is_mouth_very_wide:
                     behavior['mar_frame_counter'] += 1
                     
+                    # Require 150 consecutive frames (5 seconds at 30 fps) with wide mouth
                     if behavior['mar_frame_counter'] >= self.mar_consec_frames:
                         if not behavior['is_talking']:
                             behavior['is_talking'] = True
@@ -282,6 +270,7 @@ class BehaviorAnalyzer:
                         behavior['is_talking'] = False
                         self.log_behavior(student_name, 'talking', 'stopped')
                     behavior['mar_frame_counter'] = 0
+                    behavior['talk_start_time'] = None
             else:
                 behavior['mar_frame_counter'] = 0
                 behavior['talk_start_time'] = None

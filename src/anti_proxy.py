@@ -210,18 +210,22 @@ class AntiProxyVerifier:
         
         self.ear_history.append(avg_ear)
         
-        # Detect blink (eyes close THEN open = blink)
+        # Detect blink - CORRECTED LOGIC
+        # Blink = eyes OPEN (high EAR) → eyes CLOSE (low EAR) → eyes OPEN (high EAR)
+        # We detect the CLOSING part (low EAR for several frames)
         if avg_ear < self.ear_threshold:
+            # Eyes are closing/closed
             self.frame_counter += 1
         else:
+            # Eyes opened again
             if self.frame_counter >= self.consec_frames:
+                # Eyes were closed for enough frames, now opened = BLINK!
                 self.total_blinks += 1
-                # Show blink detection message
                 remaining = self.blink_threshold - self.total_blinks
                 if remaining > 0:
-                    print(f"👁️ Blink detected! ({remaining} more needed)")
+                    print(f"👁️ Blink {self.total_blinks} detected! ({remaining} more needed)")
                 else:
-                    print(f"✓ Blink detected! Live person verified")
+                    print(f"✅ Blink {self.total_blinks} detected! Live person verified")
             self.frame_counter = 0
         
         # Check head movement
