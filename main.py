@@ -82,6 +82,9 @@ class SmartClassroomMonitor:
         self.frame_count = 0
         self.running = True
         
+        # Attendance tracking - prevent duplicate marking attempts
+        self.attendance_marked = {}  # {student_name: timestamp}
+        
         print("\n✓ System Ready!\n")
     
     def run_monitoring_mode(self, video_source=0):
@@ -170,13 +173,25 @@ class SmartClassroomMonitor:
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
             )
+            
+            # 3. AUTOMATIC ATTENDANCE - Mark attendance immediately when face is recognized
+            for face in self.recognized_faces:
+                if face['name'] != 'Unknown':
+                    # Check if already attempted to mark attendance for this student
+                    student_name = face['name']
+                    if student_name not in self.attendance_marked:
+                        # Mark attendance automatically (only once per student per day)
+                        success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                        if success:
+                            # Track that we've marked this student
+                            self.attendance_marked[student_name] = datetime.now()
         else:
             self.recognized_faces = []
         
-        # 3. Behavior Analysis
+        # 4. Behavior Analysis
         behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
         
-        # 4. Phone Detection (every 3 frames for better detection)
+        # 5. Phone Detection (every 3 frames for better detection)
         phone_incidents = []
         if self.frame_count % 3 == 0:
             self.phone_detector.detect_phones(frame)
@@ -185,10 +200,10 @@ class SmartClassroomMonitor:
                 self.recognized_faces
             )
         
-        # 5. Generate Alerts
+        # 6. Generate Alerts
         self.check_and_generate_alerts(behavior_results, phone_incidents)
         
-        # 6. Draw overlays
+        # 7. Draw overlays
         output_frame = self.draw_comprehensive_overlay(
             output_frame,
             self.recognized_faces,
