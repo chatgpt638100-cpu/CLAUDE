@@ -11,6 +11,11 @@ import os
 from datetime import datetime
 import time  # For 5-second delay
 
+# Silence TensorFlow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import warnings
+warnings.filterwarnings('ignore')
+
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
@@ -45,12 +50,7 @@ class SmartClassroomMonitor:
             model_path=self.config.get('model_path', 'models/trained_knn_model.pkl')
         )
         
-        # Check if model is loaded
-        if not self.face_recognizer.knn_model:
-            print("⚠️ WARNING: Face recognition model not loaded!")
-            print("   Run: cd src && python face_recognition.py train")
-        
-        # Anti-Proxy Verification
+        # Anti-Proxy Verification (silent - no output)
         self.anti_proxy = AntiProxyVerifier(
             ear_threshold=self.config.get('blink_threshold', 0.21),
             consec_frames=3,
@@ -95,11 +95,7 @@ class SmartClassroomMonitor:
         cap = cv2.VideoCapture(video_source)
         
         if not cap.isOpened():
-            print("ERROR: Cannot open webcam!")
-            return
-        
-        print("✓ Webcam opened successfully")
-        print("Press 'q' to quit\n")
+            return  # Silent
         
         paused = False
         
@@ -115,9 +111,8 @@ class SmartClassroomMonitor:
                 try:
                     output_frame = self.process_frame(frame)
                 except Exception as e:
-                    # If error, just show the raw frame
+                    # If error, just show the raw frame (silent)
                     output_frame = frame
-                    print(f"Error processing frame: {e}")
                 
                 # Display frame
                 cv2.imshow('Smart Classroom Monitor', output_frame)

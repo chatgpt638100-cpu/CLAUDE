@@ -44,9 +44,9 @@ class PhoneDetector:
         try:
             # Load YOLOv8 model
             self.model = YOLO(model_path)
-            print(f"YOLOv8 model loaded: {model_path}")
+            # Silent mode - no output
         except Exception as e:
-            print(f"Error loading YOLOv8 model: {e}")
+            pass  # Silent
             print("Make sure the model file exists or will be downloaded automatically.")
     
     def detect_phones(self, frame):

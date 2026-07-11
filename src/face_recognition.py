@@ -200,8 +200,7 @@ class FaceRecognizer:
         self.label_encoder = model_data['label_encoder']
         self.student_names = model_data['student_names']
         
-        print(f"Model loaded from {self.model_path}")
-        print(f"Loaded {len(self.student_names)} student profiles")
+        # Silent mode - no output
         return True
     
     def recognize_face(self, face_image, threshold=0.6):
