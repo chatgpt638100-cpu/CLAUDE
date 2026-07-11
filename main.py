@@ -215,9 +215,8 @@ class SmartClassroomMonitor:
         
         # 1. Face Detection (every 6 frames on even multiples: 6, 12, 18...)
         if self.frame_count % 6 == 0:
-            # Resize frame for faster processing (smaller = faster)
-            small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-            self.face_detector.detect_faces(small_frame)
+            # Detect on FULL FRAME (not resized) to fix rectangle placement
+            self.face_detector.detect_faces(frame)
         
         # 2. Get face crops (use cached detection results)
         face_crops = self.face_detector.get_face_crops(frame)
@@ -230,7 +229,7 @@ class SmartClassroomMonitor:
                 threshold=self.config.get('recognition_threshold', 0.6)
             )
         
-        # 4. INDEPENDENT TIMER LOGIC FOR EACH STUDENT
+        # 4. INDEPENDENT TIMER LOGIC FOR EACH STUDENT (SILENT MODE)
         # Get list of currently recognized students
         current_students = set()
         for face in self.recognized_faces:
@@ -238,24 +237,24 @@ class SmartClassroomMonitor:
                 student_name_raw = face['name'].strip().lower()
                 current_students.add(student_name_raw)
         
-        # Check each student independently
+        # Check each student independently (NO terminal output during waiting)
         for student_key in ["bhava", "vishal", "priya"]:
             if student_key in current_students:
                 # Student is currently detected
                 self.last_seen_time[student_key] = current_time
                 
-                # Start timer if not started
+                # Start timer if not started (SILENT - no print)
                 if self.detection_start_times[student_key] is None:
                     self.detection_start_times[student_key] = current_time
                     self.waiting_message_shown[student_key] = False
-                    print(f"{student_key.capitalize()} detected — waiting for 5 seconds...")
+                    # NO PRINT - completely silent during waiting
                 
                 # Calculate elapsed time
                 elapsed = current_time - self.detection_start_times[student_key]
                 
-                # After 5 seconds, trigger alert ONCE
+                # After 5 seconds, trigger alert ONCE (SILENT - print happens in email worker)
                 if elapsed >= 5.0 and not self.alert_sent[student_key]:
-                    print(f"{student_key.capitalize()} detected for 5 seconds — generating alert.")
+                    # NO PRINT HERE - will print in email worker only
                     
                     # Mark alert as sent
                     self.alert_sent[student_key] = True
@@ -303,6 +302,7 @@ class SmartClassroomMonitor:
         """
         Send alert for a specific student (called by email worker thread)
         Send alert ONLY ONCE per student detection
+        ONLY print the final message after 5 seconds
         
         Args:
             student_key: Student name in lowercase (bhava, vishal, priya)
@@ -313,13 +313,11 @@ class SmartClassroomMonitor:
         # Student-specific rules
         if student_key == 'bhava':
             # Bhava: Talking, email to teacher only
-            print(f"Bhava is talking.")
             
-            # Mark attendance
+            # Mark attendance (silent)
             success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
             if success:
                 self.attendance_marked[student_name] = datetime.now()
-                print(f"✓ Attendance marked for Bhava")
             
             # Send email to teacher only (not to parent)
             alert = self.alert_system.create_alert(
@@ -330,14 +328,14 @@ class SmartClassroomMonitor:
                 details={'duration': 5},
                 send_to_parent=False  # Teacher only
             )
+            
+            # ONLY ONE MESSAGE after 5 seconds
             print(f"Bhava is talking - email sent to teacher")
             
         elif student_key == 'vishal':
             # Vishal: Not blinking + using mobile phone, email to both teacher and parent
-            print(f"Vishal is not blinking and is using a mobile phone.")
             
-            # NO attendance (proxy detected)
-            print(f"✗ Attendance NOT marked for Vishal (proxy detected)")
+            # NO attendance (proxy detected) - silent
             
             # Send email to both teacher and parent
             alert1 = self.alert_system.create_alert(
@@ -357,17 +355,17 @@ class SmartClassroomMonitor:
                 details={'confidence': 0.9},
                 send_to_parent=True  # Both teacher and parent
             )
+            
+            # ONLY ONE MESSAGE after 5 seconds
             print(f"Vishal is not blinking and is using a mobile phone - email sent to teacher and parent")
             
         elif student_key == 'priya':
             # Priya: Sleeping, email to teacher only
-            print(f"Priya is sleeping.")
             
-            # Mark attendance
+            # Mark attendance (silent)
             success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
             if success:
                 self.attendance_marked[student_name] = datetime.now()
-                print(f"✓ Attendance marked for Priya")
             
             # Send email to teacher only (not to parent)
             alert = self.alert_system.create_alert(
@@ -378,6 +376,8 @@ class SmartClassroomMonitor:
                 details={'duration': 5},
                 send_to_parent=False  # Teacher only
             )
+            
+            # ONLY ONE MESSAGE after 5 seconds
             print(f"Priya is sleeping - email sent to teacher")
     
     def draw_comprehensive_overlay(self, frame, recognized_faces, behavior_results, phone_incidents):
