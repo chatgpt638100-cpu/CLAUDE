@@ -176,21 +176,21 @@ class SmartClassroomMonitor:
         Returns:
             Processed frame with overlays
         """
-        # ULTRA FAST MODE: Process only every 5th frame, show cached result for others
-        # This gives 60 FPS display with minimal processing lag
-        if self.frame_count % 5 != 0 and self.last_output_frame is not None:
+        # ULTRA FAST MODE: Process only every 3rd frame, show cached result for others
+        # This gives maximum speed with minimal processing
+        if self.frame_count % 3 != 0 and self.last_output_frame is not None:
             return self.last_output_frame
         
         output_frame = frame.copy()
         
-        # 1. Face Detection (every 15 frames - reduced frequency)
-        if self.frame_count % 15 == 0:
+        # 1. Face Detection (every 20 frames - reduced frequency)
+        if self.frame_count % 20 == 0:
             self.face_detector.detect_faces(frame)
         
         face_crops = self.face_detector.get_face_crops(frame)
         
-        # 2. Face Recognition (every 30 frames - reduced frequency)
-        if self.frame_count % 30 == 0 and face_crops:
+        # 2. Face Recognition (every 40 frames - reduced frequency)
+        if self.frame_count % 40 == 0 and face_crops:
             self.recognized_faces = self.face_recognizer.recognize_multiple_faces(
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
@@ -216,45 +216,59 @@ class SmartClassroomMonitor:
                                     consec_frames=3,
                                     blink_threshold=self.config.get('required_blinks', 1)
                                 ),
-                                'checking': True
+                                'checking': True,
+                                'last_check_frame': self.frame_count
                             }
+                            print(f"🔍 Starting 8-second liveness check for {student_name}...")
                         
-                        # Run verification for this student (every 30 frames - reduced frequency)
-                        if self._proxy_check_students[student_name]['checking'] and self.frame_count % 30 == 0:
+                        # Run verification for this student ONLY if still checking
+                        # Call every frame during verification period (8 seconds)
+                        if self._proxy_check_students[student_name]['checking']:
                             verifier = self._proxy_check_students[student_name]['verifier']
-                            proxy_result = verifier.verify_liveness(frame)
                             
-                            # Check if verification completed (8 seconds passed)
-                            if proxy_result.get('verification_complete', False) or proxy_result['is_live']:
-                                self._proxy_check_students[student_name]['checking'] = False
+                            # Only call verify_liveness every 10 frames to reduce MediaPipe load
+                            frame_since_start = self.frame_count - self._proxy_check_students[student_name]['last_check_frame']
+                            if frame_since_start % 10 == 0:
+                                proxy_result = verifier.verify_liveness(frame)
                                 
-                                if proxy_result['is_live']:
-                                    # Real person detected - mark attendance
+                                # Check if verification completed (8 seconds passed OR blink detected)
+                                if proxy_result.get('verification_complete', False):
+                                    self._proxy_check_students[student_name]['checking'] = False
+                                    
+                                    if proxy_result['is_live']:
+                                        # Real person detected - mark attendance
+                                        success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                                        if success:
+                                            self.attendance_marked[student_name] = datetime.now()
+                                            print(f"✅ LIVENESS VERIFIED for {student_name} - Attendance marked!")
+                                    else:
+                                        # Proxy detected after 8 seconds - send alert
+                                        print(f"🚨 PROXY DETECTED: {student_name} - No blink detected in 8 seconds!")
+                                        proxy_alert = self.alert_system.check_proxy_attendance_alert(
+                                            student_name, 
+                                            proxy_result
+                                        )
+                                        # Mark as checked to prevent repeated alerts
+                                        self.attendance_marked[student_name] = datetime.now()
+                                elif proxy_result['is_live'] and proxy_result['blinks'] >= 1:
+                                    # Blink detected before 8 seconds! Instant verification
+                                    self._proxy_check_students[student_name]['checking'] = False
                                     success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
                                     if success:
                                         self.attendance_marked[student_name] = datetime.now()
-                                        print(f"✓ Liveness verified for {student_name}")
-                                else:
-                                    # Proxy detected after 8 seconds - send alert
-                                    print(f"⚠️ PROXY DETECTED: {student_name} - No blink in 8 seconds!")
-                                    proxy_alert = self.alert_system.check_proxy_attendance_alert(
-                                        student_name, 
-                                        proxy_result
-                                    )
-                                    # Mark as checked to prevent repeated alerts
-                                    self.attendance_marked[student_name] = datetime.now()
+                                        print(f"✅ LIVENESS VERIFIED for {student_name} - Attendance marked!")
         else:
             self.recognized_faces = []
         
-        # 4. Behavior Analysis (every 60 frames - MediaPipe is VERY heavy, reduced to 1/sec)
+        # 4. Behavior Analysis (every 90 frames - MediaPipe is VERY heavy, only every 3 seconds)
         # Cache last result for smooth display
-        if self.frame_count % 60 == 0:
+        if self.frame_count % 90 == 0:
             self.cached_behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
         behavior_results = getattr(self, 'cached_behavior_results', [])
         
-        # 5. Phone Detection (every 90 frames - YOLOv8 is VERY heavy, once every 1.5 seconds)
+        # 5. Phone Detection (every 120 frames - YOLOv8 is VERY heavy, once every 4 seconds)
         # Cache last result for smooth display
-        if self.frame_count % 90 == 0:
+        if self.frame_count % 120 == 0:
             self.phone_detector.detect_phones(frame)
             self.cached_phone_incidents = self.phone_detector.match_phone_to_student(
                 self.phone_detector.detections,
