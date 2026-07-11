@@ -65,8 +65,12 @@ class PhoneDetector:
         self.detections = []
         
         try:
-            # Run YOLOv8 inference with class filtering (only cell phones)
-            results = self.model(frame, verbose=False, classes=[self.CELL_PHONE_CLASS_ID])
+            # Run YOLOv8 inference with class filtering (only cell phones) and reduced image size
+            # Resize frame to speed up inference (half resolution)
+            scale = 0.5
+            small_frame = cv2.resize(frame, None, fx=scale, fy=scale)
+            
+            results = self.model(small_frame, verbose=False, classes=[self.CELL_PHONE_CLASS_ID])
             
             # Process results - only cell phones will be returned due to filtering
             for result in results:
@@ -80,9 +84,9 @@ class PhoneDetector:
                     confidence = float(box.conf[0])
                     
                     if confidence >= self.confidence_threshold:
-                        # Get bounding box coordinates
+                        # Get bounding box coordinates and scale back up
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                        x, y, w, h = int(x1), int(y1), int(x2 - x1), int(y2 - y1)
+                        x, y, w, h = int(x1/scale), int(y1/scale), int((x2-x1)/scale), int((y2-y1)/scale)
                         
                         detection = {
                             'bbox': (x, y, w, h),
