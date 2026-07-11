@@ -41,23 +41,39 @@ class SmartClassroomMonitor:
         """
         self.config = config or {}
         
+        print("=" * 70)
+        print("SMART CLASSROOM MONITORING SYSTEM")
+        print("=" * 70)
+        print("Initializing system components...")
+        
         # Initialize all components (SILENT MODE)
         # Face Detection
+        print("  [1/5] Loading face detector...")
         self.face_detector = FaceDetector(
             min_detection_confidence=self.config.get('face_detection_confidence', 0.6)
         )
+        print("  ✓ Face detector loaded")
         
         # Face Recognition
-        self.face_recognizer = FaceRecognizer(
-            model_path=self.config.get('model_path', 'models/trained_knn_model.pkl')
-        )
+        print("  [2/5] Loading face recognition model...")
+        try:
+            self.face_recognizer = FaceRecognizer(
+                model_path=self.config.get('model_path', 'models/trained_knn_model.pkl')
+            )
+            print("  ✓ Face recognition model loaded")
+        except Exception as e:
+            print(f"  ✗ FAILED to load face recognition model: {e}")
+            print(f"  Please train the model first: cd src && python face_recognition.py train")
+            sys.exit(1)
         
         # Anti-Proxy Verification (silent - no output)
+        print("  [3/5] Loading anti-proxy verifier...")
         self.anti_proxy = AntiProxyVerifier(
             ear_threshold=self.config.get('blink_threshold', 0.21),
             consec_frames=3,
             blink_threshold=self.config.get('required_blinks', 2)
         )
+        print("  ✓ Anti-proxy verifier loaded")
         
         # Behavior Analyzer - DISABLED (not needed, simplifying system)
         # self.behavior_analyzer = BehaviorAnalyzer(...)
@@ -66,7 +82,9 @@ class SmartClassroomMonitor:
         # self.phone_detector = PhoneDetector(...)
         
         # Alert System
+        print("  [4/5] Loading alert system...")
         self.alert_system = AlertSystem(self.config.get('alert_config', {}))
+        print("  ✓ Alert system loaded")
         
         # Verify email configuration (SILENT)
         alert_config = self.config.get('alert_config', {})
@@ -114,11 +132,15 @@ class SmartClassroomMonitor:
         }
         
         # Email queue to prevent threading overload
+        print("  [5/5] Starting email worker thread...")
         self.email_queue = Queue(maxsize=10)
         self.email_worker_thread = threading.Thread(target=self._email_worker, daemon=True)
         self.email_worker_thread.start()
+        print("  ✓ Email worker thread started")
         
-        # System ready (silent mode - no print)
+        print("\n✓ System initialization complete!")
+        print("=" * 70)
+        print("\nStarting webcam...\n")
     
     def run_monitoring_mode(self, video_source=0):
         """
@@ -127,15 +149,31 @@ class SmartClassroomMonitor:
         Args:
             video_source: Camera index or video file path
         """
+        print(f"Opening video source: {video_source}")
         cap = cv2.VideoCapture(video_source)
         
         if not cap.isOpened():
-            return  # Silent
+            print(f"\n✗ ERROR: Failed to open video source: {video_source}")
+            print("\nTroubleshooting:")
+            print("  1. Make sure webcam is connected")
+            print("  2. Check if another program is using the webcam")
+            print("  3. Try different camera index: python main.py --source 1")
+            print("  4. Check camera permissions")
+            return
+        
+        print("✓ Webcam opened successfully!")
         
         # Set camera properties for better performance
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         cap.set(cv2.CAP_PROP_FPS, 30)
+        
+        print("\nCamera settings:")
+        print(f"  Resolution: {int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}")
+        print(f"  FPS: {int(cap.get(cv2.CAP_PROP_FPS))}")
+        print("\nMonitoring active! Press 'q' to quit.")
+        print("=" * 70)
+        print()
         
         paused = False
         
@@ -143,6 +181,7 @@ class SmartClassroomMonitor:
             if not paused:
                 ret, frame = cap.read()
                 if not ret:
+                    print("\n✗ ERROR: Failed to read frame from webcam")
                     break
                 
                 self.frame_count += 1
@@ -154,6 +193,7 @@ class SmartClassroomMonitor:
                     # Display frame EVERY time for smooth video
                     cv2.imshow('Smart Classroom Monitor', output_frame)
                 except Exception as e:
+                    print(f"\n✗ ERROR in process_frame: {e}")
                     # If error, just show the raw frame
                     cv2.imshow('Smart Classroom Monitor', frame)
             else:
@@ -163,6 +203,7 @@ class SmartClassroomMonitor:
             key = cv2.waitKey(1) & 0xFF
             
             if key == ord('q'):
+                print("\nShutting down...")
                 break  # Silent quit
             elif key == ord(' '):
                 paused = not paused
@@ -178,6 +219,7 @@ class SmartClassroomMonitor:
         cap.release()
         cv2.destroyAllWindows()
         self.cleanup()
+        print("✓ System shutdown complete")
     
     def _email_worker(self):
         """Background worker thread that sends emails from queue (non-blocking)"""
@@ -724,12 +766,18 @@ Examples:
     
     # Initialize and run system (SILENT MODE)
     try:
+        print("\n" + "=" * 70)
+        print("INITIALIZING SYSTEM...")
+        print("=" * 70 + "\n")
+        
         monitor = SmartClassroomMonitor(config)
         monitor.run_monitoring_mode(video_source)
     except KeyboardInterrupt:
-        pass  # Silent
+        print("\n\n✓ Program interrupted by user")
     except Exception as e:
-        pass  # Silent
+        print(f"\n\n✗ FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
