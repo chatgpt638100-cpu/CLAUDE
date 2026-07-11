@@ -94,28 +94,33 @@ class FaceRecognizer:
             │   ├── img2.jpg
         
         Args:
-            data_dir: Path to students directory
+            data_dir: Path to students directory (relative to project root)
         """
-        print(f"Loading training data from {data_dir}...")
+        # FIX: Convert relative path to absolute path based on project root
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)  # Go up one level from src/
+        full_data_dir = os.path.join(project_root, data_dir)
         
-        if not os.path.exists(data_dir):
-            print(f"Directory {data_dir} does not exist. Creating it...")
-            os.makedirs(data_dir)
+        print(f"Loading training data from {full_data_dir}...")
+        
+        if not os.path.exists(full_data_dir):
+            print(f"Directory {full_data_dir} does not exist. Creating it...")
+            os.makedirs(full_data_dir)
             return
         
         self.training_data = []
         self.training_labels = []
         self.student_names = []
         
-        student_dirs = [d for d in os.listdir(data_dir) 
-                       if os.path.isdir(os.path.join(data_dir, d))]
+        student_dirs = [d for d in os.listdir(full_data_dir) 
+                       if os.path.isdir(os.path.join(full_data_dir, d))]
         
         if not student_dirs:
             print("No student directories found. Please add student images.")
             return
         
         for student_name in student_dirs:
-            student_path = os.path.join(data_dir, student_name)
+            student_path = os.path.join(full_data_dir, student_name)
             image_files = [f for f in os.listdir(student_path) 
                           if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
             
