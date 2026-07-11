@@ -49,7 +49,7 @@ class AntiProxyVerifier:
         self.frame_counter = 0
         self.total_blinks = 0
         self.verification_start_time = None
-        self.verification_timeout = 5  # 5 seconds to detect at least 1 blink
+        self.verification_timeout = 8  # 8 seconds to detect at least 1 blink
         
         # History for motion detection
         self.ear_history = deque(maxlen=30)
@@ -168,16 +168,16 @@ class AntiProxyVerifier:
             self.total_blinks = 0
             self.verification_status = "Verifying..."
         
-        # Check timeout - SIMPLE: 5 seconds, must have at least 1 blink
+        # Check timeout - 8 seconds, must have at least 1 blink
         elapsed_time = time.time() - self.verification_start_time
         if elapsed_time > self.verification_timeout:
-            # After 5 seconds, check if we got at least 1 blink
+            # After 8 seconds, check if we got at least 1 blink
             if self.total_blinks >= self.blink_threshold:
                 # Blink detected → Real person
                 self.verification_status = "✓ Live Person (Blink detected)"
                 self.is_live = True
             else:
-                # NO blink in 5 seconds → PROXY!
+                # NO blink in 8 seconds → PROXY!
                 self.verification_status = "✗ PROXY (No blink detected)"
                 self.is_live = False
             return self.get_verification_result()
@@ -253,8 +253,12 @@ class AntiProxyVerifier:
         if self.verification_start_time:
             elapsed_time = time.time() - self.verification_start_time
         
+        # Check if verification period is complete
+        verification_complete = elapsed_time >= self.verification_timeout
+        
         result = {
             'is_live': self.is_live,
+            'verification_complete': verification_complete,
             'status': self.verification_status,
             'blinks': self.total_blinks,
             'required_blinks': self.blink_threshold,

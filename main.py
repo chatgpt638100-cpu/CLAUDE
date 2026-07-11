@@ -173,52 +173,75 @@ class SmartClassroomMonitor:
         """
         output_frame = frame.copy()
         
-        # 1. Face Detection
+        # 1. Face Detection (every frame - keep for smooth display)
         self.face_detector.detect_faces(frame)
         face_crops = self.face_detector.get_face_crops(frame)
         
-        # 2. Face Recognition
-        if face_crops:
+        # 2. Face Recognition (every 3 frames to reduce lag)
+        if self.frame_count % 3 == 0 and face_crops:
             self.recognized_faces = self.face_recognizer.recognize_multiple_faces(
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
             )
             
             # 3. ANTI-PROXY VERIFICATION & AUTOMATIC ATTENDANCE
+            # Only check for recognized students (not Unknown)
             for face in self.recognized_faces:
                 if face['name'] != 'Unknown':
                     student_name = face['name']
                     
                     # Check if already attempted to mark attendance for this student
                     if student_name not in self.attendance_marked:
-                        # ANTI-PROXY CHECK: Verify liveness before marking attendance
-                        proxy_result = self.anti_proxy.verify_liveness(frame)
+                        # Start proxy check for this specific student
+                        # Initialize tracking if first time seeing this student
+                        if not hasattr(self, '_proxy_check_students'):
+                            self._proxy_check_students = {}
                         
-                        if proxy_result['is_live']:
-                            # Real person detected - mark attendance
-                            success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                            if success:
-                                # Track that we've marked this student
-                                self.attendance_marked[student_name] = datetime.now()
-                                print(f"✓ Liveness verified for {student_name}")
-                        else:
-                            # Proxy detected - send alert
-                            print(f"⚠️ PROXY DETECTED: {student_name} - No blink detected!")
-                            proxy_alert = self.alert_system.check_proxy_attendance_alert(
-                                student_name, 
-                                proxy_result
-                            )
-                            # Reset anti-proxy for next check
-                            self.anti_proxy.reset()
+                        if student_name not in self._proxy_check_students:
+                            self._proxy_check_students[student_name] = {
+                                'verifier': AntiProxyVerifier(
+                                    ear_threshold=self.config.get('blink_threshold', 0.21),
+                                    consec_frames=3,
+                                    blink_threshold=self.config.get('required_blinks', 1)
+                                ),
+                                'checking': True
+                            }
+                        
+                        # Run verification for this student
+                        if self._proxy_check_students[student_name]['checking']:
+                            verifier = self._proxy_check_students[student_name]['verifier']
+                            proxy_result = verifier.verify_liveness(frame)
+                            
+                            # Check if verification completed (8 seconds passed)
+                            if proxy_result.get('verification_complete', False) or proxy_result['is_live']:
+                                self._proxy_check_students[student_name]['checking'] = False
+                                
+                                if proxy_result['is_live']:
+                                    # Real person detected - mark attendance
+                                    success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                                    if success:
+                                        self.attendance_marked[student_name] = datetime.now()
+                                        print(f"✓ Liveness verified for {student_name}")
+                                else:
+                                    # Proxy detected after 8 seconds - send alert
+                                    print(f"⚠️ PROXY DETECTED: {student_name} - No blink in 8 seconds!")
+                                    proxy_alert = self.alert_system.check_proxy_attendance_alert(
+                                        student_name, 
+                                        proxy_result
+                                    )
+                                    # Mark as checked to prevent repeated alerts
+                                    self.attendance_marked[student_name] = datetime.now()
         else:
             self.recognized_faces = []
         
-        # 4. Behavior Analysis
-        behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
+        # 4. Behavior Analysis (every 2 frames to reduce lag)
+        behavior_results = []
+        if self.frame_count % 2 == 0:
+            behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
         
-        # 5. Phone Detection (every 3 frames for better detection)
+        # 5. Phone Detection (every 5 frames for better performance)
         phone_incidents = []
-        if self.frame_count % 3 == 0:
+        if self.frame_count % 5 == 0:
             self.phone_detector.detect_phones(frame)
             phone_incidents = self.phone_detector.match_phone_to_student(
                 self.phone_detector.detections,
