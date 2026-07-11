@@ -20,9 +20,15 @@ class FaceRecognizer:
         Initialize Face Recognizer
         
         Args:
-            model_path: Path to saved KNN model
+            model_path: Path to saved KNN model (relative to project root)
             n_neighbors: Number of neighbors for KNN
         """
+        # Convert relative path to absolute path
+        if not os.path.isabs(model_path):
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(script_dir)
+            model_path = os.path.join(project_root, model_path)
+        
         self.model_path = model_path
         self.n_neighbors = n_neighbors
         self.knn_model = None
