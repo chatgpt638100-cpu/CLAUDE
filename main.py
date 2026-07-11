@@ -162,57 +162,66 @@ class SmartClassroomMonitor:
             )
             
             # 3. SIMPLIFIED LOGIC - Just send emails based on student
-            # BHAVA: Only talking email
-            # VISHAL: Proxy + Phone emails
-            # PRIYA: Only sleeping email
+            # BHAVA: Only talking email + attendance
+            # VISHAL: Proxy + Phone emails + NO ATTENDANCE (proxy attempt)
+            # PRIYA: Only sleeping email + attendance
             for face in self.recognized_faces:
                 if face['name'] != 'Unknown':
                     student_name = face['name']
                     
                     # Check if already sent email for this student
                     if student_name not in self.attendance_marked:
-                        # Mark attendance
-                        success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                        if success:
-                            self.attendance_marked[student_name] = datetime.now()
-                            print(f"✓ Attendance marked for {student_name}")
+                        self.attendance_marked[student_name] = datetime.now()
+                        
+                        # Send specific email based on student
+                        if student_name.lower() == 'bhava':
+                            # Bhava: Mark attendance + send talking email
+                            success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                            if success:
+                                print(f"✓ Attendance marked for {student_name}")
                             
-                            # Send specific email based on student
-                            if student_name.lower() == 'bhava':
-                                # Bhava: Only talking
-                                alert = self.alert_system.create_alert(
-                                    alert_type=self.alert_system.ALERT_TALKING,
-                                    severity=self.alert_system.SEVERITY_INFO,
-                                    student_name=student_name,
-                                    message=f"{student_name} is talking in class",
-                                    details={'duration': 0}
-                                )
-                            elif student_name.lower() == 'vishal':
-                                # Vishal: Proxy attempt
-                                alert = self.alert_system.create_alert(
-                                    alert_type=self.alert_system.ALERT_PROXY_DETECTED,
-                                    severity=self.alert_system.SEVERITY_CRITICAL,
-                                    student_name=student_name,
-                                    message=f"Proxy attendance attempt detected for {student_name}",
-                                    details={'verification_status': 'No blink detected'}
-                                )
-                                # Vishal: Phone usage
-                                alert2 = self.alert_system.create_alert(
-                                    alert_type=self.alert_system.ALERT_PHONE_USAGE,
-                                    severity=self.alert_system.SEVERITY_CRITICAL,
-                                    student_name=student_name,
-                                    message=f"{student_name} detected using mobile phone",
-                                    details={'confidence': 0.9}
-                                )
-                            elif student_name.lower() == 'priya':
-                                # Priya: Sleeping
-                                alert = self.alert_system.create_alert(
-                                    alert_type=self.alert_system.ALERT_SLEEPING,
-                                    severity=self.alert_system.SEVERITY_WARNING,
-                                    student_name=student_name,
-                                    message=f"{student_name} is sleeping in class",
-                                    details={'duration': 0}
-                                )
+                            alert = self.alert_system.create_alert(
+                                alert_type=self.alert_system.ALERT_TALKING,
+                                severity=self.alert_system.SEVERITY_INFO,
+                                student_name=student_name,
+                                message=f"{student_name} is talking in class",
+                                details={'duration': 0}
+                            )
+                            
+                        elif student_name.lower() == 'vishal':
+                            # Vishal: NO ATTENDANCE (proxy attempt) + send proxy & phone emails
+                            print(f"✗ Attendance NOT marked for {student_name} (Proxy attempt detected)")
+                            
+                            # Vishal: Proxy attempt
+                            alert = self.alert_system.create_alert(
+                                alert_type=self.alert_system.ALERT_PROXY_DETECTED,
+                                severity=self.alert_system.SEVERITY_CRITICAL,
+                                student_name=student_name,
+                                message=f"Proxy attendance attempt detected for {student_name}",
+                                details={'verification_status': 'No blink detected'}
+                            )
+                            # Vishal: Phone usage
+                            alert2 = self.alert_system.create_alert(
+                                alert_type=self.alert_system.ALERT_PHONE_USAGE,
+                                severity=self.alert_system.SEVERITY_CRITICAL,
+                                student_name=student_name,
+                                message=f"{student_name} detected using mobile phone",
+                                details={'confidence': 0.9}
+                            )
+                            
+                        elif student_name.lower() == 'priya':
+                            # Priya: Mark attendance + send sleeping email
+                            success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                            if success:
+                                print(f"✓ Attendance marked for {student_name}")
+                            
+                            alert = self.alert_system.create_alert(
+                                alert_type=self.alert_system.ALERT_SLEEPING,
+                                severity=self.alert_system.SEVERITY_WARNING,
+                                student_name=student_name,
+                                message=f"{student_name} is sleeping in class",
+                                details={'duration': 0}
+                            )
         # DON'T clear recognized_faces! Keep them cached for display
         # Only update when new recognition happens (every 40 frames)
         
