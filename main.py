@@ -95,8 +95,10 @@ class SmartClassroomMonitor:
         # Attendance tracking - prevent duplicate marking attempts
         self.attendance_marked = {}  # {student_name: timestamp}
         
-        # Cache last processed frame for smooth display
+        # Cache last processed frame and results for smooth display
         self.last_output_frame = None
+        self.cached_behavior_results = []
+        self.cached_phone_incidents = []
         
         print("\n✓ System Ready!\n")
     
@@ -244,18 +246,20 @@ class SmartClassroomMonitor:
             self.recognized_faces = []
         
         # 4. Behavior Analysis (every 30 frames - MediaPipe is heavy)
-        behavior_results = []
+        # Cache last result for smooth display
         if self.frame_count % 30 == 0:
-            behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
+            self.cached_behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
+        behavior_results = getattr(self, 'cached_behavior_results', [])
         
         # 5. Phone Detection (every 60 frames - YOLOv8 is VERY heavy, once per second)
-        phone_incidents = []
+        # Cache last result for smooth display
         if self.frame_count % 60 == 0:
             self.phone_detector.detect_phones(frame)
-            phone_incidents = self.phone_detector.match_phone_to_student(
+            self.cached_phone_incidents = self.phone_detector.match_phone_to_student(
                 self.phone_detector.detections,
                 self.recognized_faces
             )
+        phone_incidents = getattr(self, 'cached_phone_incidents', [])
         
         # 6. Generate Alerts
         self.check_and_generate_alerts(behavior_results, phone_incidents)
