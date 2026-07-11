@@ -10,7 +10,8 @@ import sys
 import os
 from datetime import datetime
 import time
-import threading  # For non-blocking email sending
+import threading
+from queue import Queue, Empty
 
 # Silence TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -84,9 +85,38 @@ class SmartClassroomMonitor:
         self.cached_behavior_results = []
         self.cached_phone_incidents = []
         
-        # Student-specific tracking
-        self._first_detection_time = {}  # Track when each student was first seen
-        self._alert_sent = {}  # Track if alert has been sent (send only once)
+        # INDEPENDENT TIMERS FOR EACH STUDENT
+        self.detection_start_times = {
+            "bhava": None,
+            "vishal": None,
+            "priya": None
+        }
+        
+        # Alert sent tracking (one alert per student)
+        self.alert_sent = {
+            "bhava": False,
+            "vishal": False,
+            "priya": False
+        }
+        
+        # Detection state tracking (for reset logic)
+        self.last_seen_time = {
+            "bhava": None,
+            "vishal": None,
+            "priya": None
+        }
+        
+        # Debugging: print waiting message only once
+        self.waiting_message_shown = {
+            "bhava": False,
+            "vishal": False,
+            "priya": False
+        }
+        
+        # Email queue to prevent threading overload
+        self.email_queue = Queue(maxsize=10)
+        self.email_worker_thread = threading.Thread(target=self._email_worker, daemon=True)
+        self.email_worker_thread.start()
         
         # System ready (silent mode - no print)
     
@@ -102,6 +132,11 @@ class SmartClassroomMonitor:
         if not cap.isOpened():
             return  # Silent
         
+        # Set camera properties for better performance
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        
         paused = False
         
         while self.running:
@@ -116,7 +151,7 @@ class SmartClassroomMonitor:
                 try:
                     output_frame = self.process_frame(frame)
                     
-                    # Display frame
+                    # Display frame EVERY time for smooth video
                     cv2.imshow('Smart Classroom Monitor', output_frame)
                 except Exception as e:
                     # If error, just show the raw frame
@@ -124,7 +159,7 @@ class SmartClassroomMonitor:
             else:
                 cv2.waitKey(100)
             
-            # Handle key presses
+            # Handle key presses (MUST have waitKey for display)
             key = cv2.waitKey(1) & 0xFF
             
             if key == ord('q'):
@@ -144,9 +179,27 @@ class SmartClassroomMonitor:
         cv2.destroyAllWindows()
         self.cleanup()
     
+    def _email_worker(self):
+        """Background worker thread that sends emails from queue (non-blocking)"""
+        while True:
+            try:
+                email_task = self.email_queue.get(timeout=1)
+                if email_task is None:
+                    break
+                
+                # Unpack task
+                student_name, face = email_task
+                
+                # Send the actual email
+                self._send_student_alert_actual(student_name, face)
+                
+                self.email_queue.task_done()
+            except Empty:
+                continue
+    
     def process_frame(self, frame):
         """
-        Process a single frame - ULTRA LIGHT for no freezing
+        Process a single frame - OPTIMIZED for smooth webcam
         
         Args:
             frame: Input video frame
@@ -154,59 +207,88 @@ class SmartClassroomMonitor:
         Returns:
             Processed frame with overlays
         """
-        # ULTRA LIGHT: Process only every 20th frame, cache all others
-        if self.frame_count % 20 != 0 and self.last_output_frame is not None:
-            return self.last_output_frame
+        # PERFORMANCE: Process heavy operations only every 3-5 frames
+        # Display continues every frame for smooth video
         
         output_frame = frame.copy()
+        current_time = time.monotonic()  # Use monotonic for reliable timing
         
-        # 1. Face Detection (every 60 frames - very light)
-        if self.frame_count % 60 == 0:
-            self.face_detector.detect_faces(frame)
+        # 1. Face Detection (every 3 frames - lightweight)
+        if self.frame_count % 3 == 0:
+            # Resize frame for faster processing (smaller = faster)
+            small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+            self.face_detector.detect_faces(small_frame)
         
+        # 2. Get face crops (use cached detection results)
         face_crops = self.face_detector.get_face_crops(frame)
         
-        # 2. Face Recognition (every 60 frames - very light)
-        if self.frame_count % 60 == 0 and face_crops:
+        # 3. Face Recognition (every 3 frames - lightweight)
+        if self.frame_count % 3 == 0 and face_crops:
             self.recognized_faces = self.face_recognizer.recognize_multiple_faces(
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
             )
         
-        # 3. Check for recognized students and send alerts AFTER 5 SECONDS
-        current_time = time.time()
-        
+        # 4. INDEPENDENT TIMER LOGIC FOR EACH STUDENT
+        # Get list of currently recognized students
+        current_students = set()
         for face in self.recognized_faces:
             if face['name'] != 'Unknown':
-                student_name = face['name']
+                student_name_raw = face['name'].strip().lower()
+                current_students.add(student_name_raw)
+        
+        # Check each student independently
+        for student_key in ["bhava", "vishal", "priya"]:
+            if student_key in current_students:
+                # Student is currently detected
+                self.last_seen_time[student_key] = current_time
                 
-                # Track when student was FIRST seen
-                if student_name not in self._first_detection_time:
-                    self._first_detection_time[student_name] = current_time
+                # Start timer if not started
+                if self.detection_start_times[student_key] is None:
+                    self.detection_start_times[student_key] = current_time
+                    self.waiting_message_shown[student_key] = False
+                    print(f"{student_key.capitalize()} detected — waiting for 5 seconds...")
                 
-                # Check how long student has been detected
-                time_since_first = current_time - self._first_detection_time[student_name]
+                # Calculate elapsed time
+                elapsed = current_time - self.detection_start_times[student_key]
                 
-                # After 5 seconds, send alert ONLY ONCE
-                if time_since_first >= 5.0 and student_name not in self._alert_sent:
-                    # Mark that alert has been sent for this student
-                    self._alert_sent[student_name] = True
+                # After 5 seconds, trigger alert ONCE
+                if elapsed >= 5.0 and not self.alert_sent[student_key]:
+                    print(f"{student_key.capitalize()} detected for 5 seconds — generating alert.")
                     
-                    # Send alert in separate thread to avoid blocking webcam
-                    alert_thread = threading.Thread(
-                        target=self._send_student_alert,
-                        args=(student_name, face),
-                        daemon=True
-                    )
-                    alert_thread.start()
+                    # Mark alert as sent
+                    self.alert_sent[student_key] = True
+                    
+                    # Find the face object for this student
+                    student_face = None
+                    for face in self.recognized_faces:
+                        if face['name'].strip().lower() == student_key:
+                            student_face = face
+                            break
+                    
+                    # Add to email queue (non-blocking)
+                    if student_face and not self.email_queue.full():
+                        try:
+                            self.email_queue.put_nowait((student_key, student_face))
+                        except:
+                            pass  # Queue full, skip
+            
+            else:
+                # Student not currently detected
+                # Reset timer if student has been gone for 3+ seconds (cooldown)
+                if self.last_seen_time[student_key] is not None:
+                    time_since_last_seen = current_time - self.last_seen_time[student_key]
+                    if time_since_last_seen > 3.0:
+                        # Reset everything for this student
+                        self.detection_start_times[student_key] = None
+                        self.alert_sent[student_key] = False
+                        self.waiting_message_shown[student_key] = False
+                        self.last_seen_time[student_key] = None
         
-        # DON'T clear recognized_faces! Keep them cached for display
-        
-        # 4-6. Behavior Analysis & Phone Detection - DISABLED (not needed)
+        # 5. Draw overlays
         behavior_results = []
         phone_incidents = []
         
-        # 7. Draw overlays
         output_frame = self.draw_comprehensive_overlay(
             output_frame,
             self.recognized_faces,
@@ -214,22 +296,21 @@ class SmartClassroomMonitor:
             phone_incidents
         )
         
-        # Cache this frame for smooth display
-        self.last_output_frame = output_frame
-        
         return output_frame
     
-    def _send_student_alert(self, student_name, face):
+    def _send_student_alert_actual(self, student_key, face):
         """
-        Send alert for a specific student (called in separate thread)
+        Send alert for a specific student (called by email worker thread)
         Send alert ONLY ONCE per student detection
         
         Args:
-            student_name: Name of the student
+            student_key: Student name in lowercase (bhava, vishal, priya)
             face: Face detection result
         """
+        student_name = student_key.capitalize()
+        
         # Student-specific rules
-        if student_name.lower() == 'bhava':
+        if student_key == 'bhava':
             # Bhava: Talking, email to teacher only
             print(f"Bhava is talking.")
             
@@ -237,6 +318,7 @@ class SmartClassroomMonitor:
             success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
             if success:
                 self.attendance_marked[student_name] = datetime.now()
+                print(f"✓ Attendance marked for Bhava")
             
             # Send email to teacher only (not to parent)
             alert = self.alert_system.create_alert(
@@ -244,17 +326,17 @@ class SmartClassroomMonitor:
                 severity=self.alert_system.SEVERITY_INFO,
                 student_name=student_name,
                 message=f"{student_name} is talking in class",
-                details={'duration': 0},
+                details={'duration': 5},
                 send_to_parent=False  # Teacher only
             )
-            print(f"✉️  Email sent to teacher about Bhava talking")
+            print(f"Bhava is talking - email sent to teacher")
             
-        elif student_name.lower() == 'vishal':
+        elif student_key == 'vishal':
             # Vishal: Not blinking + using mobile phone, email to both teacher and parent
             print(f"Vishal is not blinking and is using a mobile phone.")
             
             # NO attendance (proxy detected)
-            self.attendance_marked[student_name] = datetime.now()
+            print(f"✗ Attendance NOT marked for Vishal (proxy detected)")
             
             # Send email to both teacher and parent
             alert1 = self.alert_system.create_alert(
@@ -274,9 +356,9 @@ class SmartClassroomMonitor:
                 details={'confidence': 0.9},
                 send_to_parent=True  # Both teacher and parent
             )
-            print(f"✉️  Email sent to teacher and parent about Vishal")
+            print(f"Vishal is not blinking and is using a mobile phone - email sent to teacher and parent")
             
-        elif student_name.lower() == 'priya':
+        elif student_key == 'priya':
             # Priya: Sleeping, email to teacher only
             print(f"Priya is sleeping.")
             
@@ -284,6 +366,7 @@ class SmartClassroomMonitor:
             success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
             if success:
                 self.attendance_marked[student_name] = datetime.now()
+                print(f"✓ Attendance marked for Priya")
             
             # Send email to teacher only (not to parent)
             alert = self.alert_system.create_alert(
@@ -291,10 +374,10 @@ class SmartClassroomMonitor:
                 severity=self.alert_system.SEVERITY_WARNING,
                 student_name=student_name,
                 message=f"{student_name} is sleeping in class",
-                details={'duration': 0},
+                details={'duration': 5},
                 send_to_parent=False  # Teacher only
             )
-            print(f"✉️  Email sent to teacher about Priya sleeping")
+            print(f"Priya is sleeping - email sent to teacher")
     
     def draw_comprehensive_overlay(self, frame, recognized_faces, behavior_results, phone_incidents):
         """Draw all information overlays on frame - OPTIMIZED"""
@@ -519,6 +602,9 @@ class SmartClassroomMonitor:
     
     def cleanup(self):
         """Cleanup resources (SILENT)"""
+        # Stop email worker
+        self.email_queue.put(None)  # Signal to stop
+        
         self.face_detector.close()
         self.anti_proxy.close()
         # self.behavior_analyzer.close()  # Disabled
