@@ -181,14 +181,17 @@ class SmartClassroomMonitor:
     
     def _email_worker(self):
         """Background worker thread that sends emails from queue (non-blocking)"""
+        print("[DEBUG] Email worker thread started")
         while True:
             try:
                 email_task = self.email_queue.get(timeout=1)
                 if email_task is None:
+                    print("[DEBUG] Email worker stopping...")
                     break
                 
                 # Unpack task
                 student_name, face = email_task
+                print(f"[DEBUG] Email worker received task for: {student_name}")
                 
                 # Send the actual email
                 self._send_student_alert_actual(student_name, face)
@@ -196,6 +199,8 @@ class SmartClassroomMonitor:
                 self.email_queue.task_done()
             except Empty:
                 continue
+            except Exception as e:
+                print(f"[DEBUG] Email worker error: {e}")
     
     def process_frame(self, frame):
         """
@@ -229,32 +234,40 @@ class SmartClassroomMonitor:
                 threshold=self.config.get('recognition_threshold', 0.6)
             )
         
-        # 4. INDEPENDENT TIMER LOGIC FOR EACH STUDENT (SILENT MODE)
+        # 4. INDEPENDENT TIMER LOGIC FOR EACH STUDENT
         # Get list of currently recognized students
         current_students = set()
         for face in self.recognized_faces:
             if face['name'] != 'Unknown':
                 student_name_raw = face['name'].strip().lower()
                 current_students.add(student_name_raw)
+                # DEBUG: Print when face is recognized
+                if self.frame_count % 30 == 0:  # Print every second
+                    print(f"[DEBUG] Recognized: {student_name_raw}")
         
-        # Check each student independently (NO terminal output during waiting)
+        # Check each student independently
         for student_key in ["bhava", "vishal", "priya"]:
             if student_key in current_students:
                 # Student is currently detected
                 self.last_seen_time[student_key] = current_time
                 
-                # Start timer if not started (SILENT - no print)
+                # Start timer if not started
                 if self.detection_start_times[student_key] is None:
                     self.detection_start_times[student_key] = current_time
                     self.waiting_message_shown[student_key] = False
-                    # NO PRINT - completely silent during waiting
+                    # DEBUG: Print when timer starts
+                    print(f"[DEBUG] Timer started for {student_key}")
                 
                 # Calculate elapsed time
                 elapsed = current_time - self.detection_start_times[student_key]
                 
-                # After 5 seconds, trigger alert ONCE (SILENT - print happens in email worker)
+                # DEBUG: Print elapsed time every second
+                if self.frame_count % 30 == 0:
+                    print(f"[DEBUG] {student_key} elapsed: {elapsed:.1f}s / 5.0s")
+                
+                # After 5 seconds, trigger alert ONCE
                 if elapsed >= 5.0 and not self.alert_sent[student_key]:
-                    # NO PRINT HERE - will print in email worker only
+                    print(f"[DEBUG] 5 seconds reached for {student_key}! Sending to email queue...")
                     
                     # Mark alert as sent
                     self.alert_sent[student_key] = True
@@ -270,8 +283,11 @@ class SmartClassroomMonitor:
                     if student_face and not self.email_queue.full():
                         try:
                             self.email_queue.put_nowait((student_key, student_face))
-                        except:
-                            pass  # Queue full, skip
+                            print(f"[DEBUG] {student_key} added to email queue successfully")
+                        except Exception as e:
+                            print(f"[DEBUG] Failed to add to queue: {e}")
+                    else:
+                        print(f"[DEBUG] Queue full or face not found")
             
             else:
                 # Student not currently detected
