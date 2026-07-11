@@ -354,6 +354,7 @@ class SmartClassroomMonitor:
             success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
             if success:
                 self.attendance_marked[student_name] = datetime.now()
+                print(f"Attendance has been marked for {student_name}")
             
             # Send email to teacher only (not to parent)
             try:
@@ -365,7 +366,7 @@ class SmartClassroomMonitor:
                     details={'duration': 5},
                     send_to_parent=False  # Teacher only
                 )
-                print("Attendance marked and email sent to teacher")
+                print(f"{student_name} is talking - email sent to teacher")
             except Exception as e:
                 print(f"ERROR: Email failed - {e}")
             
@@ -373,6 +374,7 @@ class SmartClassroomMonitor:
             # Vishal: Not blinking + using mobile phone, email to both teacher and parent
             
             # NO attendance (proxy detected)
+            print(f"Attendance has NOT been marked for {student_name} (proxy detected)")
             
             try:
                 # Send email to both teacher and parent
@@ -393,7 +395,7 @@ class SmartClassroomMonitor:
                     details={'confidence': 0.9},
                     send_to_parent=True  # Both teacher and parent
                 )
-                print("Email sent to teacher and parent")
+                print(f"{student_name} is not blinking and using mobile phone - email sent to teacher and parent")
             except Exception as e:
                 print(f"ERROR: Email failed - {e}")
             
@@ -404,6 +406,7 @@ class SmartClassroomMonitor:
             success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
             if success:
                 self.attendance_marked[student_name] = datetime.now()
+                print(f"Attendance has been marked for {student_name}")
             
             try:
                 # Send email to teacher only (not to parent)
@@ -415,7 +418,7 @@ class SmartClassroomMonitor:
                     details={'duration': 5},
                     send_to_parent=False  # Teacher only
                 )
-                print("Attendance marked and email sent to teacher")
+                print(f"{student_name} is sleeping - email sent to teacher")
             except Exception as e:
                 print(f"ERROR: Email failed - {e}")
     
