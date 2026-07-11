@@ -245,19 +245,32 @@ class BehaviorAnalyzer:
                 behavior['ear_frame_counter'] = 0
                 behavior['sleep_start_time'] = None
             
-            # Talking detection logic
-            if mar > self.mar_threshold:
-                behavior['mar_frame_counter'] += 1
+            # Talking detection logic - IMPROVED: Detect mouth MOVEMENT (opening/closing pattern)
+            # Instead of just checking if mouth is open, check for variability in MAR
+            if len(behavior['mar_history']) >= 10:
+                # Calculate standard deviation of recent MAR values
+                mar_std = np.std(list(behavior['mar_history'])[-10:])
+                mar_mean = np.mean(list(behavior['mar_history'])[-10:])
                 
-                if behavior['mar_frame_counter'] >= self.mar_consec_frames:
-                    if not behavior['is_talking']:
-                        behavior['is_talking'] = True
-                        behavior['talk_start_time'] = datetime.now()
-                        self.log_behavior(student_name, 'talking', 'started')
+                # Talking = mouth is moving (high variability) AND mouth opens reasonably
+                is_mouth_moving = mar_std > 0.03  # Variability threshold
+                is_mouth_open_enough = mar_mean > self.mar_threshold
+                
+                if is_mouth_moving and is_mouth_open_enough:
+                    behavior['mar_frame_counter'] += 1
+                    
+                    if behavior['mar_frame_counter'] >= self.mar_consec_frames:
+                        if not behavior['is_talking']:
+                            behavior['is_talking'] = True
+                            behavior['talk_start_time'] = datetime.now()
+                            self.log_behavior(student_name, 'talking', 'started')
+                else:
+                    if behavior['is_talking']:
+                        behavior['is_talking'] = False
+                        self.log_behavior(student_name, 'talking', 'stopped')
+                    behavior['mar_frame_counter'] = 0
             else:
-                if behavior['is_talking']:
-                    behavior['is_talking'] = False
-                    self.log_behavior(student_name, 'talking', 'stopped')
+                # Not enough history yet
                 behavior['mar_frame_counter'] = 0
                 behavior['talk_start_time'] = None
             
