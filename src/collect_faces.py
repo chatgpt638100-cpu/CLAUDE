@@ -17,9 +17,16 @@ def collect_face_images(student_name, num_images=30, output_dir='data/students')
         num_images: Number of images to collect
         output_dir: Output directory
     """
-    # Create directory for student
-    student_dir = os.path.join(output_dir, student_name)
+    # Get the project root directory (one level up from src/)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    
+    # Create full path to output directory
+    full_output_dir = os.path.join(project_root, output_dir)
+    student_dir = os.path.join(full_output_dir, student_name)
     os.makedirs(student_dir, exist_ok=True)
+    
+    print(f"Saving images to: {student_dir}")
     
     # Initialize face detector
     detector = FaceDetector(min_detection_confidence=0.7)
@@ -123,12 +130,17 @@ def batch_collect(student_names, num_images=30):
 
 def list_students(data_dir='data/students'):
     """List all students in the database"""
-    if not os.path.exists(data_dir):
-        print("No student data found.")
+    # Get the project root directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    full_data_dir = os.path.join(project_root, data_dir)
+    
+    if not os.path.exists(full_data_dir):
+        print(f"No student data found at: {full_data_dir}")
         return
     
-    student_dirs = [d for d in os.listdir(data_dir) 
-                   if os.path.isdir(os.path.join(data_dir, d))]
+    student_dirs = [d for d in os.listdir(full_data_dir) 
+                   if os.path.isdir(os.path.join(full_data_dir, d))]
     
     if not student_dirs:
         print("No students registered.")
@@ -136,7 +148,7 @@ def list_students(data_dir='data/students'):
     
     print(f"\n=== Registered Students ({len(student_dirs)}) ===")
     for student in sorted(student_dirs):
-        student_path = os.path.join(data_dir, student)
+        student_path = os.path.join(full_data_dir, student)
         image_count = len([f for f in os.listdir(student_path) 
                           if f.lower().endswith(('.jpg', '.jpeg', '.png'))])
         print(f"  - {student}: {image_count} images")
