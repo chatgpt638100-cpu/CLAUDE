@@ -76,6 +76,16 @@ class SmartClassroomMonitor:
         print("  ✓ Loading Alert System...")
         self.alert_system = AlertSystem(self.config.get('alert_config', {}))
         
+        # Verify email configuration
+        alert_config = self.config.get('alert_config', {})
+        if alert_config.get('enable_email_alerts'):
+            if alert_config.get('email_password') == 'YOUR_APP_PASSWORD_HERE':
+                print("\n⚠️  WARNING: Email alerts enabled but password not configured!")
+                print("   Edit config/config.yaml and set email_password")
+                print("   Get App Password: https://myaccount.google.com/apppasswords\n")
+            else:
+                print("  ✓ Email alerts configured")
+        
         # Application state
         self.mode = "MONITORING"  # MONITORING, VERIFICATION, ATTENDANCE
         self.recognized_faces = []
@@ -174,17 +184,32 @@ class SmartClassroomMonitor:
                 threshold=self.config.get('recognition_threshold', 0.6)
             )
             
-            # 3. AUTOMATIC ATTENDANCE - Mark attendance immediately when face is recognized
+            # 3. ANTI-PROXY VERIFICATION & AUTOMATIC ATTENDANCE
             for face in self.recognized_faces:
                 if face['name'] != 'Unknown':
-                    # Check if already attempted to mark attendance for this student
                     student_name = face['name']
+                    
+                    # Check if already attempted to mark attendance for this student
                     if student_name not in self.attendance_marked:
-                        # Mark attendance automatically (only once per student per day)
-                        success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                        if success:
-                            # Track that we've marked this student
-                            self.attendance_marked[student_name] = datetime.now()
+                        # ANTI-PROXY CHECK: Verify liveness before marking attendance
+                        proxy_result = self.anti_proxy.verify_liveness(frame)
+                        
+                        if proxy_result['is_live']:
+                            # Real person detected - mark attendance
+                            success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                            if success:
+                                # Track that we've marked this student
+                                self.attendance_marked[student_name] = datetime.now()
+                                print(f"✓ Liveness verified for {student_name}")
+                        else:
+                            # Proxy detected - send alert
+                            print(f"⚠️ PROXY DETECTED: {student_name} - No blink detected!")
+                            proxy_alert = self.alert_system.check_proxy_attendance_alert(
+                                student_name, 
+                                proxy_result
+                            )
+                            # Reset anti-proxy for next check
+                            self.anti_proxy.reset()
         else:
             self.recognized_faces = []
         
@@ -488,10 +513,30 @@ Examples:
     
     # Load configuration
     config = {}
-    if args.config:
-        import yaml
-        with open(args.config, 'r') as f:
-            config = yaml.safe_load(f)
+    
+    # Try to load config file (check multiple locations)
+    config_paths = [
+        args.config if args.config else None,
+        'config/config.yaml',
+        'config.yaml',
+    ]
+    
+    config_loaded = False
+    for config_path in config_paths:
+        if config_path and os.path.exists(config_path):
+            try:
+                import yaml
+                with open(config_path, 'r') as f:
+                    config = yaml.safe_load(f)
+                print(f"✓ Loaded configuration from: {config_path}")
+                config_loaded = True
+                break
+            except Exception as e:
+                print(f"⚠️ Failed to load config from {config_path}: {e}")
+    
+    if not config_loaded:
+        print("⚠️ No configuration file found - using defaults")
+        print("   Expected location: config/config.yaml")
     
     # Initialize and run system
     try:
