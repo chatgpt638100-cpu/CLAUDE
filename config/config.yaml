@@ -11,11 +11,14 @@ recognition_threshold: 0.6
 blink_threshold: 0.21
 required_blinks: 2                     # If no blink detected with eyes open = proxy attendance
 
-# Behavior Analysis Settings
-sleep_ear_threshold: 0.20  # Lower = more sensitive to closed eyes
-sleep_frames: 150          # 5 seconds at 30 FPS (5 * 30 = 150 frames)
-talk_mar_threshold: 0.35   # FIXED: Detects mouth movement properly
-talk_frames: 150           # 5 seconds at 30 FPS (5 * 30 = 150 frames)
+# Behavior Analysis Settings - IMPROVED FOR BETTER DETECTION
+sleep_ear_threshold: 0.20  # Eyes closed detection
+sleep_frames: 150          # 5 seconds at 30 FPS
+
+# Talking detection - DETECTS MOUTH OPENING/CLOSING PATTERN
+talk_mar_threshold: 0.25   # Lower threshold to detect mouth movement
+talk_mar_min_change: 0.10  # Minimum change in MAR to detect talking (opening/closing)
+talk_frames: 150           # 5 seconds at 30 FPS
 
 # Phone Detection Settings
 yolo_model: "yolov8n.pt"

@@ -268,7 +268,7 @@ class FaceRecognizer:
     
     def mark_attendance(self, student_name, confidence):
         """
-        Mark attendance for a student
+        Mark attendance for a student - SAVES TO BOTH JSON AND EXCEL
         
         Args:
             student_name: Name of the student
@@ -281,7 +281,7 @@ class FaceRecognizer:
             'status': 'present'
         }
         
-        # Save to attendance log
+        # Save to JSON log
         log_dir = 'data/attendance_logs'
         os.makedirs(log_dir, exist_ok=True)
         
@@ -306,7 +306,19 @@ class FaceRecognizer:
             with open(log_file, 'w') as f:
                 json.dump(logs, f, indent=4)
             
-            print(f"Attendance marked for {student_name} at {attendance_data['timestamp']}")
+            # ALSO EXPORT TO EXCEL
+            try:
+                # Import here to avoid circular dependency
+                import sys
+                import os
+                sys.path.insert(0, os.path.dirname(__file__))
+                from excel_attendance import mark_attendance_to_excel
+                mark_attendance_to_excel(student_name, confidence)
+            except Exception as e:
+                print(f"Excel export failed: {e}")
+            
+            print(f"✓ Attendance marked for {student_name} at {attendance_data['timestamp']}")
+            print(f"✓ Exported to JSON and Excel")
             return True
         else:
             print(f"{student_name} already marked present today")

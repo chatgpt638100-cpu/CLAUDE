@@ -251,7 +251,7 @@ class SmartClassroomMonitor:
             # Only draw behavior status (sleeping/talking) below the name
             status_y = y + 30  # Position below face center
             
-            # Sleeping status
+            # Sleeping status ONLY
             if result.get('is_sleeping'):
                 sleep_text = "SLEEPING"
                 if result.get('sleep_duration'):
@@ -260,17 +260,8 @@ class SmartClassroomMonitor:
                     output_frame, sleep_text, (x - 50, status_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2
                 )
-                status_y += 25
             
-            # Talking status
-            if result.get('is_talking'):
-                talk_text = "TALKING"
-                if result.get('talk_duration'):
-                    talk_text += f" ({result['talk_duration']:.0f}s)"
-                cv2.putText(
-                    output_frame, talk_text, (x - 50, status_y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2
-                )
+            # DO NOT SHOW TALKING - REMOVED AS REQUESTED
         
         # Draw phone detections
         if phone_incidents:
