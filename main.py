@@ -45,6 +45,11 @@ class SmartClassroomMonitor:
             model_path=self.config.get('model_path', 'models/trained_knn_model.pkl')
         )
         
+        # Check if model is loaded
+        if not self.face_recognizer.knn_model:
+            print("⚠️ WARNING: Face recognition model not loaded!")
+            print("   Run: cd src && python face_recognition.py train")
+        
         # Anti-Proxy Verification
         self.anti_proxy = AntiProxyVerifier(
             ear_threshold=self.config.get('blink_threshold', 0.21),
@@ -90,9 +95,11 @@ class SmartClassroomMonitor:
         cap = cv2.VideoCapture(video_source)
         
         if not cap.isOpened():
-            return  # Silent - no error message
+            print("ERROR: Cannot open webcam!")
+            return
         
-        # Silent mode - no startup messages
+        print("✓ Webcam opened successfully")
+        print("Press 'q' to quit\n")
         
         paused = False
         
@@ -104,8 +111,13 @@ class SmartClassroomMonitor:
                 
                 self.frame_count += 1
                 
-                # Process frame
-                output_frame = self.process_frame(frame)
+                # Process frame with error handling
+                try:
+                    output_frame = self.process_frame(frame)
+                except Exception as e:
+                    # If error, just show the raw frame
+                    output_frame = frame
+                    print(f"Error processing frame: {e}")
                 
                 # Display frame
                 cv2.imshow('Smart Classroom Monitor', output_frame)
