@@ -187,7 +187,7 @@ class SmartClassroomMonitor:
                                 self.attendance_marked[student_name] = datetime.now()
                                 
                                 # Send specific email based on student
-                                        if student_name.lower() == 'bhava':
+                                if student_name.lower() == 'bhava':
                                     # Bhava: Mark attendance + send talking email
                                     success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
                                     if success:
