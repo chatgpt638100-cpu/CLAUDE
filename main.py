@@ -174,20 +174,20 @@ class SmartClassroomMonitor:
         Returns:
             Processed frame with overlays
         """
-        # Process only every 5th frame, otherwise return cached frame for smooth display
-        if self.frame_count % 5 != 0 and self.last_output_frame is not None:
+        # Process only every 10th frame for 60 FPS display, cache result for others
+        if self.frame_count % 10 != 0 and self.last_output_frame is not None:
             return self.last_output_frame
         
         output_frame = frame.copy()
         
-        # 1. Face Detection (every 5 frames to reduce lag significantly)
-        if self.frame_count % 5 == 0:
+        # 1. Face Detection (every 10 frames - cache result)
+        if self.frame_count % 10 == 0:
             self.face_detector.detect_faces(frame)
         
         face_crops = self.face_detector.get_face_crops(frame)
         
-        # 2. Face Recognition (every 10 frames to reduce lag)
-        if self.frame_count % 10 == 0 and face_crops:
+        # 2. Face Recognition (every 20 frames)
+        if self.frame_count % 20 == 0 and face_crops:
             self.recognized_faces = self.face_recognizer.recognize_multiple_faces(
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
@@ -216,8 +216,8 @@ class SmartClassroomMonitor:
                                 'checking': True
                             }
                         
-                        # Run verification for this student (every 10 frames to reduce lag)
-                        if self._proxy_check_students[student_name]['checking'] and self.frame_count % 10 == 0:
+                        # Run verification for this student (every 20 frames)
+                        if self._proxy_check_students[student_name]['checking'] and self.frame_count % 20 == 0:
                             verifier = self._proxy_check_students[student_name]['verifier']
                             proxy_result = verifier.verify_liveness(frame)
                             
@@ -243,14 +243,14 @@ class SmartClassroomMonitor:
         else:
             self.recognized_faces = []
         
-        # 4. Behavior Analysis (every 15 frames to reduce lag - very heavy MediaPipe)
+        # 4. Behavior Analysis (every 30 frames - MediaPipe is heavy)
         behavior_results = []
-        if self.frame_count % 15 == 0:
+        if self.frame_count % 30 == 0:
             behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
         
-        # 5. Phone Detection (every 30 frames - YOLOv8 is extremely heavy)
+        # 5. Phone Detection (every 60 frames - YOLOv8 is VERY heavy, once per second)
         phone_incidents = []
-        if self.frame_count % 30 == 0:
+        if self.frame_count % 60 == 0:
             self.phone_detector.detect_phones(frame)
             phone_incidents = self.phone_detector.match_phone_to_student(
                 self.phone_detector.detections,
