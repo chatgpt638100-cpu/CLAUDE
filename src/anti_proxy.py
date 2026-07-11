@@ -23,14 +23,14 @@ class AntiProxyVerifier:
                          397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
                          172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]
     
-    def __init__(self, ear_threshold=0.21, consec_frames=3, blink_threshold=2):
+    def __init__(self, ear_threshold=0.21, consec_frames=3, blink_threshold=1):
         """
         Initialize Anti-Proxy Verifier
         
         Args:
             ear_threshold: Eye Aspect Ratio threshold for blink detection
             consec_frames: Consecutive frames below threshold to count as blink
-            blink_threshold: Minimum blinks required for verification
+            blink_threshold: Minimum blinks required for verification (1 blink in 5 seconds)
         """
         self.mp_face_mesh = mp.solutions.face_mesh
         self.face_mesh = self.mp_face_mesh.FaceMesh(
@@ -49,7 +49,7 @@ class AntiProxyVerifier:
         self.frame_counter = 0
         self.total_blinks = 0
         self.verification_start_time = None
-        self.verification_timeout = 10  # seconds
+        self.verification_timeout = 5  # 5 seconds to detect at least 1 blink
         
         # History for motion detection
         self.ear_history = deque(maxlen=30)
@@ -168,11 +168,17 @@ class AntiProxyVerifier:
             self.total_blinks = 0
             self.verification_status = "Verifying..."
         
-        # Check timeout
+        # Check timeout - SIMPLE: 5 seconds, must have at least 1 blink
         elapsed_time = time.time() - self.verification_start_time
         if elapsed_time > self.verification_timeout:
-            if self.total_blinks < self.blink_threshold:
-                self.verification_status = "Failed - Insufficient blinks"
+            # After 5 seconds, check if we got at least 1 blink
+            if self.total_blinks >= self.blink_threshold:
+                # Blink detected → Real person
+                self.verification_status = "✓ Live Person (Blink detected)"
+                self.is_live = True
+            else:
+                # NO blink in 5 seconds → PROXY!
+                self.verification_status = "✗ PROXY (No blink detected)"
                 self.is_live = False
             return self.get_verification_result()
         
@@ -204,13 +210,18 @@ class AntiProxyVerifier:
         
         self.ear_history.append(avg_ear)
         
-        # Detect blink
+        # Detect blink (eyes close THEN open = blink)
         if avg_ear < self.ear_threshold:
             self.frame_counter += 1
         else:
             if self.frame_counter >= self.consec_frames:
                 self.total_blinks += 1
-                print(f"Blink detected! Total blinks: {self.total_blinks}")
+                # Show blink detection message
+                remaining = self.blink_threshold - self.total_blinks
+                if remaining > 0:
+                    print(f"👁️ Blink detected! ({remaining} more needed)")
+                else:
+                    print(f"✓ Blink detected! Live person verified")
             self.frame_counter = 0
         
         # Check head movement
@@ -219,20 +230,15 @@ class AntiProxyVerifier:
         # Check depth cues
         depth_score = self.check_depth_cues(face_landmarks, frame_width, frame_height)
         
-        # Verification logic
+        # Verification logic - SIMPLIFIED
         if self.total_blinks >= self.blink_threshold:
-            # Additional checks for robustness
-            if head_movement > 5:  # Some head movement detected
-                self.verification_status = "Verified - Live Person"
-                self.is_live = True
-            elif depth_score > 0.01:  # 3D face detected
-                self.verification_status = "Verified - Live Person"
-                self.is_live = True
-            else:
-                self.verification_status = "Verifying - Move your head slightly"
+            # Got required blink(s) → Live person!
+            self.verification_status = "✓ Live Person Verified"
+            self.is_live = True
         else:
-            blinks_needed = self.blink_threshold - self.total_blinks
-            self.verification_status = f"Blink {blinks_needed} more time(s)"
+            # Still waiting for blink
+            time_left = int(self.verification_timeout - elapsed_time)
+            self.verification_status = f"⏳ Verifying... ({time_left}s left)"
         
         return self.get_verification_result(
             frame, face_landmarks, left_eye, right_eye, avg_ear, 

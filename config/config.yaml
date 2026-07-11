@@ -9,7 +9,7 @@ recognition_threshold: 0.6
 
 # Anti-Proxy Verification Settings
 blink_threshold: 0.21
-required_blinks: 2                     # If no blink detected with eyes open = proxy attendance
+required_blinks: 1                     # If no blink in 5 seconds with eyes open = proxy attendance
 
 # Behavior Analysis Settings - IMPROVED FOR BETTER DETECTION
 sleep_ear_threshold: 0.20  # Eyes closed detection
