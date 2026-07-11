@@ -316,17 +316,25 @@ class SmartClassroomMonitor:
         """Check conditions and generate alerts"""
         # Sleeping alerts
         sleep_alerts = self.alert_system.check_sleeping_alert(behavior_results)
+        for alert in sleep_alerts:
+            print(f"💤 SLEEP ALERT: {alert['student_name']} - {alert['message']}")
         
         # Talking alerts
         talk_alerts = self.alert_system.check_talking_alert(behavior_results)
+        for alert in talk_alerts:
+            print(f"🗣️ TALK ALERT: {alert['student_name']} - {alert['message']}")
         
         # Phone usage alerts
         phone_alerts = self.alert_system.check_phone_usage_alert(phone_incidents)
+        for alert in phone_alerts:
+            print(f"📱 PHONE ALERT: {alert['student_name']} - {alert['message']}")
         
         # Check for multiple violations
         for face in self.recognized_faces:
             if face['name'] != 'Unknown':
                 violation_alert = self.alert_system.check_multiple_violations(face['name'])
+                if violation_alert:
+                    print(f"⚠️ MULTIPLE VIOLATIONS: {face['name']}")
     
     def run_verification_mode(self, cap):
         """Run anti-proxy verification for attendance"""

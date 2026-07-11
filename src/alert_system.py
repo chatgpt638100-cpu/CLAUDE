@@ -323,6 +323,8 @@ class AlertSystem:
         Args:
             alert: Alert dictionary
         """
+        print(f"\n[ALERT SYSTEM] Processing alert: {alert['type']} for {alert['student_name']}")
+        
         # Console alert
         if self.config['enable_console_alerts']:
             self._send_console_alert(alert)
@@ -333,7 +335,10 @@ class AlertSystem:
         
         # Email alert
         if self.config['enable_email_alerts']:
+            print(f"[ALERT SYSTEM] Attempting to send email...")
             self._send_email_alert(alert)
+        else:
+            print(f"[ALERT SYSTEM] Email alerts DISABLED in config")
         
         # Sound alert
         if self.config['enable_sound_alerts']:

@@ -245,8 +245,7 @@ class BehaviorAnalyzer:
                 behavior['ear_frame_counter'] = 0
                 behavior['sleep_start_time'] = None
             
-            # Talking detection logic - IMPROVED: Detect mouth MOVEMENT (opening/closing pattern)
-            # Instead of just checking if mouth is open, check for variability in MAR
+            # Talking detection logic - MUCH STRICTER with DEBUG
             if len(behavior['mar_history']) >= 15:
                 # Calculate standard deviation and range of recent MAR values
                 recent_mars = list(behavior['mar_history'])[-15:]
@@ -256,14 +255,19 @@ class BehaviorAnalyzer:
                 mar_min = np.min(recent_mars)
                 mar_range = mar_max - mar_min
                 
-                # Talking requires BOTH:
-                # 1. HIGH variability (mouth moving rapidly)
-                # 2. Significant opening range (not just small movements)
-                is_mouth_moving = mar_std > 0.08  # Much higher threshold for variability
-                has_wide_range = mar_range > 0.15  # Mouth must open significantly
-                is_mouth_open_enough = mar_mean > self.mar_threshold
+                # DEBUG: Print MAR values once per second
+                if not hasattr(self, '_last_debug_time'):
+                    self._last_debug_time = datetime.now()
                 
-                # All three conditions must be true for talking
+                if (datetime.now() - self._last_debug_time).total_seconds() >= 1.0:
+                    print(f"[MAR DEBUG] {student_name}: std={mar_std:.4f} range={mar_range:.4f} mean={mar_mean:.4f}")
+                    self._last_debug_time = datetime.now()
+                
+                # VERY STRICT THRESHOLDS - All three must be true
+                is_mouth_moving = mar_std > 0.12  # Very high variability required
+                has_wide_range = mar_range > 0.25  # Very wide opening required
+                is_mouth_open_enough = mar_mean > 0.30  # Higher mean threshold
+                
                 if is_mouth_moving and has_wide_range and is_mouth_open_enough:
                     behavior['mar_frame_counter'] += 1
                     
@@ -271,15 +275,17 @@ class BehaviorAnalyzer:
                         if not behavior['is_talking']:
                             behavior['is_talking'] = True
                             behavior['talk_start_time'] = datetime.now()
+                            print(f"🗣️ TALKING DETECTED: {student_name} (std:{mar_std:.4f}, range:{mar_range:.4f})")
                             self.log_behavior(student_name, 'talking', 'started')
                 else:
                     if behavior['is_talking']:
                         behavior['is_talking'] = False
+                        print(f"✓ Talking stopped: {student_name}")
                         self.log_behavior(student_name, 'talking', 'stopped')
                     behavior['mar_frame_counter'] = 0
             else:
-                # Not enough history yet - don't detect talking
                 behavior['mar_frame_counter'] = 0
+                behavior['talk_start_time'] = None
                 behavior['talk_start_time'] = None
             
             # Compile results
