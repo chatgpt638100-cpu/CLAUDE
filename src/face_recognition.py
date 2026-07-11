@@ -210,7 +210,7 @@ class FaceRecognizer:
             Dictionary with name and confidence, or None if unknown
         """
         if self.knn_model is None:
-            print("Model not trained. Please train or load a model first.")
+            # Model not trained - return Unknown silently
             return None
         
         # Extract features

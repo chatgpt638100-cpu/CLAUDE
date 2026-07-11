@@ -65,49 +65,34 @@ class PhoneDetector:
         self.detections = []
         
         try:
-            # Run YOLOv8 inference
-            results = self.model(frame, verbose=False)
+            # Run YOLOv8 inference with class filtering (only cell phones)
+            results = self.model(frame, verbose=False, classes=[self.CELL_PHONE_CLASS_ID])
             
-            # DEBUG: Print all detected objects
-            for result in results:
-                boxes = result.boxes
-                if len(boxes) > 0:
-                    print(f"[DEBUG] YOLOv8 detected {len(boxes)} objects")
-                    for box in boxes:
-                        class_id = int(box.cls[0])
-                        confidence = float(box.conf[0])
-                        class_name = self.model.names[class_id]
-                        print(f"  - Class: {class_name} (ID: {class_id}), Confidence: {confidence:.2f}")
-            
-            # Process results
+            # Process results - only cell phones will be returned due to filtering
             for result in results:
                 boxes = result.boxes
                 
                 for box in boxes:
-                    # Get class ID
+                    # Get class ID (will always be 67 due to filtering)
                     class_id = int(box.cls[0])
                     
-                    # Check if it's a cell phone
-                    if class_id == self.CELL_PHONE_CLASS_ID:
-                        # Get confidence
-                        confidence = float(box.conf[0])
+                    # Get confidence
+                    confidence = float(box.conf[0])
+                    
+                    if confidence >= self.confidence_threshold:
+                        # Get bounding box coordinates
+                        x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                        x, y, w, h = int(x1), int(y1), int(x2 - x1), int(y2 - y1)
                         
-                        print(f"[PHONE DETECTED] Confidence: {confidence:.2f}, Threshold: {self.confidence_threshold}")
+                        detection = {
+                            'bbox': (x, y, w, h),
+                            'confidence': confidence,
+                            'class': 'cell_phone',
+                            'center': (x + w // 2, y + h // 2)
+                        }
                         
-                        if confidence >= self.confidence_threshold:
-                            # Get bounding box coordinates
-                            x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                            x, y, w, h = int(x1), int(y1), int(x2 - x1), int(y2 - y1)
-                            
-                            detection = {
-                                'bbox': (x, y, w, h),
-                                'confidence': confidence,
-                                'class': 'cell_phone',
-                                'center': (x + w // 2, y + h // 2)
-                            }
-                            
-                            self.detections.append(detection)
-                            print(f"[PHONE ADDED] Phone detected at ({x}, {y}, {w}, {h})")
+                        self.detections.append(detection)
+                        print(f"📱 MOBILE PHONE DETECTED! Confidence: {confidence:.2f}")
         
         except Exception as e:
             print(f"Detection error: {e}")
