@@ -68,6 +68,17 @@ class PhoneDetector:
             # Run YOLOv8 inference
             results = self.model(frame, verbose=False)
             
+            # DEBUG: Print all detected objects
+            for result in results:
+                boxes = result.boxes
+                if len(boxes) > 0:
+                    print(f"[DEBUG] YOLOv8 detected {len(boxes)} objects")
+                    for box in boxes:
+                        class_id = int(box.cls[0])
+                        confidence = float(box.conf[0])
+                        class_name = self.model.names[class_id]
+                        print(f"  - Class: {class_name} (ID: {class_id}), Confidence: {confidence:.2f}")
+            
             # Process results
             for result in results:
                 boxes = result.boxes
@@ -80,6 +91,8 @@ class PhoneDetector:
                     if class_id == self.CELL_PHONE_CLASS_ID:
                         # Get confidence
                         confidence = float(box.conf[0])
+                        
+                        print(f"[PHONE DETECTED] Confidence: {confidence:.2f}, Threshold: {self.confidence_threshold}")
                         
                         if confidence >= self.confidence_threshold:
                             # Get bounding box coordinates
@@ -94,6 +107,7 @@ class PhoneDetector:
                             }
                             
                             self.detections.append(detection)
+                            print(f"[PHONE ADDED] Phone detected at ({x}, {y}, {w}, {h})")
         
         except Exception as e:
             print(f"Detection error: {e}")

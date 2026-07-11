@@ -381,49 +381,65 @@ class AlertSystem:
             json.dump(alerts, f, indent=4)
     
     def _send_email_alert(self, alert):
-        """Send alert via email"""
+        """Send alert via email with personalized greeting"""
         if not self.config['email_sender'] or not self.config['email_recipients']:
             return
         
         try:
-            msg = MIMEMultipart()
-            msg['From'] = self.config['email_sender']
-            msg['To'] = ', '.join(self.config['email_recipients'])
-            msg['Subject'] = f"[{alert['severity']}] Classroom Alert - {alert['type']}"
-            
-            body = f"""
-Classroom Monitoring Alert
+            # Send to each recipient separately with personalized greeting
+            for recipient in self.config['email_recipients']:
+                msg = MIMEMultipart()
+                msg['From'] = self.config['email_sender']
+                msg['To'] = recipient
+                msg['Subject'] = f"[{alert['severity']}] Classroom Alert - {alert['type']}"
+                
+                # Determine greeting based on recipient
+                if recipient == self.config['email_sender']:
+                    # Teacher email
+                    greeting = "Dear Teacher,"
+                else:
+                    # Parent email
+                    greeting = "Dear Parents,"
+                
+                body = f"""
+{greeting}
 
-Alert ID: {alert['id']}
+This is an automated alert from the Smart Classroom Monitoring System.
+
+Alert Information:
+==================
 Type: {alert['type']}
 Severity: {alert['severity']}
 Student: {alert['student_name']}
 Time: {alert['timestamp']}
 
-Message: {alert['message']}
+Alert Message:
+{alert['message']}
 
-Details: {json.dumps(alert['details'], indent=2)}
+Additional Details:
+{json.dumps(alert['details'], indent=2)}
 
 ---
-Automated Smart Classroom Monitoring System
-            """
-            
-            msg.attach(MIMEText(body, 'plain'))
-            
-            # Send email
-            server = smtplib.SMTP(
-                self.config['email_smtp_server'], 
-                self.config['email_smtp_port']
-            )
-            server.starttls()
-            server.login(self.config['email_sender'], self.config['email_password'])
-            server.send_message(msg)
-            server.quit()
-            
-            print(f"Email alert sent for Alert #{alert['id']}")
+This is an automated message from the Smart Classroom Monitoring System.
+For any questions, please contact the school administration.
+                """
+                
+                msg.attach(MIMEText(body, 'plain'))
+                
+                # Send email
+                server = smtplib.SMTP(
+                    self.config['email_smtp_server'], 
+                    self.config['email_smtp_port']
+                )
+                server.starttls()
+                server.login(self.config['email_sender'], self.config['email_password'])
+                server.send_message(msg)
+                server.quit()
+                
+                print(f"✓ Email alert sent to {recipient} (Alert #{alert['id']})")
         
         except Exception as e:
-            print(f"Failed to send email alert: {e}")
+            print(f"✗ Failed to send email alert: {e}")
     
     def _play_alert_sound(self, alert):
         """Play alert sound (platform-dependent)"""

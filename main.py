@@ -176,9 +176,9 @@ class SmartClassroomMonitor:
         # 3. Behavior Analysis
         behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
         
-        # 4. Phone Detection (every 5 frames to save processing)
+        # 4. Phone Detection (every 3 frames for better detection)
         phone_incidents = []
-        if self.frame_count % 5 == 0:
+        if self.frame_count % 3 == 0:
             self.phone_detector.detect_phones(frame)
             phone_incidents = self.phone_detector.match_phone_to_student(
                 self.phone_detector.detections,
@@ -282,43 +282,27 @@ class SmartClassroomMonitor:
         return output_frame
     
     def draw_status_bar(self, frame, recognized_faces, behavior_results):
-        """Draw system status bar at top of frame"""
+        """Draw system status bar at top of frame - SIMPLIFIED, NO COUNTS"""
         # Create semi-transparent overlay
         overlay = frame.copy()
-        cv2.rectangle(overlay, (0, 0), (frame.shape[1], 120), (0, 0, 0), -1)
+        cv2.rectangle(overlay, (0, 0), (frame.shape[1], 80), (0, 0, 0), -1)
         cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
         
         # System status
-        status_text = "MONITORING ACTIVE"
+        status_text = "SMART CLASSROOM MONITORING - ACTIVE"
         cv2.putText(
-            frame, status_text, (10, 25),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2
+            frame, status_text, (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2
         )
         
         # Time
         time_text = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cv2.putText(
-            frame, time_text, (10, 50),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1
+            frame, time_text, (10, 60),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2
         )
         
-        # Statistics
-        present_count = len([f for f in recognized_faces if f['name'] != 'Unknown'])
-        behavior_summary = self.behavior_analyzer.get_behavior_summary()
-        
-        stats_text = f"Present: {present_count} | Sleeping: {behavior_summary['sleeping']} | Talking: {behavior_summary['talking']}"
-        cv2.putText(
-            frame, stats_text, (10, 75),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1
-        )
-        
-        # Alerts
-        alert_summary = self.alert_system.get_alert_summary()
-        alert_text = f"Total Alerts: {alert_summary['total_alerts']}"
-        cv2.putText(
-            frame, alert_text, (10, 100),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255) if alert_summary['total_alerts'] > 0 else (255, 255, 255), 1
-        )
+        # NO STATISTICS - REMOVED AS REQUESTED
         
         return frame
     
