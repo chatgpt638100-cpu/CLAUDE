@@ -320,7 +320,6 @@ class FaceRecognizer:
             try:
                 # Import here to avoid circular dependency
                 import sys
-                import os
                 sys.path.insert(0, os.path.dirname(__file__))
                 from excel_attendance import mark_attendance_to_excel
                 mark_attendance_to_excel(student_name, confidence)
