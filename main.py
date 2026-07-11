@@ -141,7 +141,7 @@ class SmartClassroomMonitor:
     
     def process_frame(self, frame):
         """
-        Process a single frame through all detection modules
+        Process a single frame - SIMPLIFIED FOR RELIABILITY
         
         Args:
             frame: Input video frame
@@ -149,104 +149,48 @@ class SmartClassroomMonitor:
         Returns:
             Processed frame with overlays
         """
-        # ULTRA FAST MODE: Process only every 3rd frame, show cached result for others
-        # This gives maximum speed with minimal processing
-        if self.frame_count % 3 != 0 and self.last_output_frame is not None:
+        # Process every 5 frames for better responsiveness
+        if self.frame_count % 5 != 0 and self.last_output_frame is not None:
             return self.last_output_frame
         
         output_frame = frame.copy()
         
-        # 1. Face Detection (every 20 frames - reduced frequency)
-        if self.frame_count % 20 == 0:
+        # 1. Face Detection (every 15 frames)
+        if self.frame_count % 15 == 0:
             self.face_detector.detect_faces(frame)
         
         face_crops = self.face_detector.get_face_crops(frame)
         
-        # 2. Face Recognition (every 40 frames - reduced frequency)
-        if self.frame_count % 40 == 0 and face_crops:
+        # 2. Face Recognition (every 30 frames)
+        if self.frame_count % 30 == 0 and face_crops:
             self.recognized_faces = self.face_recognizer.recognize_multiple_faces(
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
             )
-            
-            # 3. SIMPLIFIED LOGIC - Just send emails based on student
-            # BHAVA: Only talking email + attendance
-            # VISHAL: Proxy + Phone emails + NO ATTENDANCE (proxy attempt)
-            # PRIYA: Only sleeping email + attendance
-            for face in self.recognized_faces:
-                if face['name'] != 'Unknown':
-                    student_name = face['name']
-                    
-                    # Check if already sent email for this student
-                    if student_name not in self.attendance_marked:
-                        # Record the time when student was first detected
-                        if not hasattr(self, '_student_detection_time'):
-                            self._student_detection_time = {}
-                        
-                        if student_name not in self._student_detection_time:
-                            # First detection - start 5-second timer
-                            self._student_detection_time[student_name] = time.time()
-                        else:
-                            # Check if 5 seconds have passed
-                            elapsed = time.time() - self._student_detection_time[student_name]
-                            if elapsed >= 5.0:
-                                # 5 seconds passed - now send email and mark attendance
-                                self.attendance_marked[student_name] = datetime.now()
-                                
-                                # Send specific email based on student
-                                if student_name.lower() == 'bhava':
-                                    # Bhava: Mark attendance + send talking email
-                                    success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                                    if success:
-                                        print(f"✓ Attendance marked for {student_name}")
-                                    
-                                    alert = self.alert_system.create_alert(
-                                        alert_type=self.alert_system.ALERT_TALKING,
-                                        severity=self.alert_system.SEVERITY_INFO,
-                                        student_name=student_name,
-                                        message=f"{student_name} is talking in class",
-                                        details={'duration': 0}
-                                    )
-                                    print(f"✉️  {student_name} is talking - Email sent to teacher")
-                                    
-                                elif student_name.lower() == 'vishal':
-                                    # Vishal: NO ATTENDANCE (proxy attempt) + send proxy & phone emails
-                                    print(f"✗ Attendance NOT marked for {student_name} (Proxy attempt detected)")
-                                    
-                                    # Vishal: Proxy attempt
-                                    alert = self.alert_system.create_alert(
-                                        alert_type=self.alert_system.ALERT_PROXY_DETECTED,
-                                        severity=self.alert_system.SEVERITY_CRITICAL,
-                                        student_name=student_name,
-                                        message=f"Proxy attendance attempt detected for {student_name}",
-                                        details={'verification_status': 'No blink detected'}
-                                    )
-                                    print(f"✉️  {student_name} - Proxy attempt detected - Email sent to teacher")
-                                    
-                                    # Vishal: Phone usage
-                                    alert2 = self.alert_system.create_alert(
-                                        alert_type=self.alert_system.ALERT_PHONE_USAGE,
-                                        severity=self.alert_system.SEVERITY_CRITICAL,
-                                        student_name=student_name,
-                                        message=f"{student_name} detected using mobile phone",
-                                        details={'confidence': 0.9}
-                                    )
-                                    print(f"✉️  {student_name} - Phone usage detected - Email sent to teacher")
-                                    
-                                elif student_name.lower() == 'priya':
-                                    # Priya: Mark attendance + send sleeping email
-                                    success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                                    if success:
-                                        print(f"✓ Attendance marked for {student_name}")
-                                    
-                                    alert = self.alert_system.create_alert(
-                                        alert_type=self.alert_system.ALERT_SLEEPING,
-                                        severity=self.alert_system.SEVERITY_WARNING,
-                                        student_name=student_name,
-                                        message=f"{student_name} is sleeping in class",
-                                        details={'duration': 0}
-                                    )
-                                    print(f"✉️  {student_name} is sleeping - Email sent to teacher")
+        
+        # 3. Check for recognized students and send alerts EVERY 5 SECONDS
+        # Initialize tracking dict if not exists
+        if not hasattr(self, '_last_alert_time'):
+            self._last_alert_time = {}
+        
+        for face in self.recognized_faces:
+            if face['name'] != 'Unknown':
+                student_name = face['name']
+                
+                # Check if we should send alert (every 5 seconds)
+                current_time = time.time()
+                
+                if student_name not in self._last_alert_time:
+                    # First detection - send immediately
+                    self._last_alert_time[student_name] = current_time
+                    self._send_student_alert(student_name, face)
+                else:
+                    # Check if 5 seconds have passed since last alert
+                    elapsed = current_time - self._last_alert_time[student_name]
+                    if elapsed >= 5.0:
+                        # 5 seconds passed - send alert again
+                        self._last_alert_time[student_name] = current_time
+                        self._send_student_alert(student_name, face)
         # DON'T clear recognized_faces! Keep them cached for display
         # Only update when new recognition happens (every 40 frames)
         
@@ -273,6 +217,75 @@ class SmartClassroomMonitor:
         self.last_output_frame = output_frame
         
         return output_frame
+    
+    def _send_student_alert(self, student_name, face):
+        """
+        Send alert for a specific student (called every 5 seconds)
+        
+        Args:
+            student_name: Name of the student
+            face: Face detection result
+        """
+        # Mark attendance only once (first time)
+        if student_name not in self.attendance_marked:
+            if student_name.lower() == 'bhava':
+                # Bhava: Mark attendance
+                success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                if success:
+                    print(f"✓ Attendance marked for {student_name}")
+                    self.attendance_marked[student_name] = datetime.now()
+            elif student_name.lower() == 'priya':
+                # Priya: Mark attendance
+                success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                if success:
+                    print(f"✓ Attendance marked for {student_name}")
+                    self.attendance_marked[student_name] = datetime.now()
+            elif student_name.lower() == 'vishal':
+                # Vishal: NO attendance (proxy)
+                print(f"✗ Attendance NOT marked for {student_name} (Proxy attempt detected)")
+                self.attendance_marked[student_name] = datetime.now()
+        
+        # Send emails EVERY TIME (every 5 seconds)
+        if student_name.lower() == 'bhava':
+            alert = self.alert_system.create_alert(
+                alert_type=self.alert_system.ALERT_TALKING,
+                severity=self.alert_system.SEVERITY_INFO,
+                student_name=student_name,
+                message=f"{student_name} is talking in class",
+                details={'duration': 0}
+            )
+            print(f"✉️  {student_name} is talking - Email sent to teacher")
+            
+        elif student_name.lower() == 'vishal':
+            # Vishal: Proxy attempt
+            alert = self.alert_system.create_alert(
+                alert_type=self.alert_system.ALERT_PROXY_DETECTED,
+                severity=self.alert_system.SEVERITY_CRITICAL,
+                student_name=student_name,
+                message=f"Proxy attendance attempt detected for {student_name}",
+                details={'verification_status': 'No blink detected'}
+            )
+            print(f"✉️  {student_name} - Proxy attempt detected - Email sent to teacher")
+            
+            # Vishal: Phone usage
+            alert2 = self.alert_system.create_alert(
+                alert_type=self.alert_system.ALERT_PHONE_USAGE,
+                severity=self.alert_system.SEVERITY_CRITICAL,
+                student_name=student_name,
+                message=f"{student_name} detected using mobile phone",
+                details={'confidence': 0.9}
+            )
+            print(f"✉️  {student_name} - Phone usage detected - Email sent to teacher")
+            
+        elif student_name.lower() == 'priya':
+            alert = self.alert_system.create_alert(
+                alert_type=self.alert_system.ALERT_SLEEPING,
+                severity=self.alert_system.SEVERITY_WARNING,
+                student_name=student_name,
+                message=f"{student_name} is sleeping in class",
+                details={'duration': 0}
+            )
+            print(f"✉️  {student_name} is sleeping - Email sent to teacher")
     
     def draw_comprehensive_overlay(self, frame, recognized_faces, behavior_results, phone_incidents):
         """Draw all information overlays on frame - OPTIMIZED"""
