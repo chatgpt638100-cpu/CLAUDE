@@ -207,6 +207,7 @@ class SmartClassroomMonitor:
                                         message=f"{student_name} is talking in class",
                                         details={'duration': 0}
                                     )
+                                    print(f"✉️  {student_name} is talking - Email sent to teacher")
                                     
                                 elif student_name.lower() == 'vishal':
                                     # Vishal: NO ATTENDANCE (proxy attempt) + send proxy & phone emails
@@ -220,6 +221,8 @@ class SmartClassroomMonitor:
                                         message=f"Proxy attendance attempt detected for {student_name}",
                                         details={'verification_status': 'No blink detected'}
                                     )
+                                    print(f"✉️  {student_name} - Proxy attempt detected - Email sent to teacher")
+                                    
                                     # Vishal: Phone usage
                                     alert2 = self.alert_system.create_alert(
                                         alert_type=self.alert_system.ALERT_PHONE_USAGE,
@@ -228,6 +231,7 @@ class SmartClassroomMonitor:
                                         message=f"{student_name} detected using mobile phone",
                                         details={'confidence': 0.9}
                                     )
+                                    print(f"✉️  {student_name} - Phone usage detected - Email sent to teacher")
                                     
                                 elif student_name.lower() == 'priya':
                                     # Priya: Mark attendance + send sleeping email
@@ -242,6 +246,7 @@ class SmartClassroomMonitor:
                                         message=f"{student_name} is sleeping in class",
                                         details={'duration': 0}
                                     )
+                                    print(f"✉️  {student_name} is sleeping - Email sent to teacher")
         # DON'T clear recognized_faces! Keep them cached for display
         # Only update when new recognition happens (every 40 frames)
         
