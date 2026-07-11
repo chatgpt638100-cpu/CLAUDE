@@ -96,7 +96,7 @@ class PhoneDetector:
                         }
                         
                         self.detections.append(detection)
-                        print(f"📱 MOBILE PHONE DETECTED! Confidence: {confidence:.2f}")
+                        # Silent - no console output
         
         except Exception as e:
             print(f"Detection error: {e}")
@@ -207,7 +207,7 @@ class PhoneDetector:
             
             self.phone_usage_log[student_name]['logged'] = True
             
-            print(f"[ALERT] {student_name} detected using mobile phone at {incident['timestamp']}")
+            # Silent - no console output
     
     def draw_detections(self, frame, incidents=None):
         """

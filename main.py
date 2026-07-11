@@ -219,7 +219,7 @@ class SmartClassroomMonitor:
                                 'checking': True,
                                 'last_check_frame': self.frame_count
                             }
-                            print(f"🔍 Starting 8-second liveness check for {student_name}...")
+                            # Silent - no console output
                         
                         # Run verification for this student ONLY if still checking
                         # Call every frame during verification period (8 seconds)
@@ -240,10 +240,9 @@ class SmartClassroomMonitor:
                                         success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
                                         if success:
                                             self.attendance_marked[student_name] = datetime.now()
-                                            print(f"✅ LIVENESS VERIFIED for {student_name} - Attendance marked!")
+                                            # Silent - no console output
                                     else:
                                         # Proxy detected after 8 seconds - send alert
-                                        print(f"🚨 PROXY DETECTED: {student_name} - No blink detected in 8 seconds!")
                                         proxy_alert = self.alert_system.check_proxy_attendance_alert(
                                             student_name, 
                                             proxy_result
@@ -256,7 +255,7 @@ class SmartClassroomMonitor:
                                     success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
                                     if success:
                                         self.attendance_marked[student_name] = datetime.now()
-                                        print(f"✅ LIVENESS VERIFIED for {student_name} - Attendance marked!")
+                                        # Silent - no console output
         # DON'T clear recognized_faces! Keep them cached for display
         # Only update when new recognition happens (every 40 frames)
         

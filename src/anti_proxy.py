@@ -221,11 +221,7 @@ class AntiProxyVerifier:
             if self.frame_counter >= self.consec_frames:
                 # Eyes were closed for enough frames, now opened = BLINK!
                 self.total_blinks += 1
-                remaining = self.blink_threshold - self.total_blinks
-                if remaining > 0:
-                    print(f"👁️ Blink {self.total_blinks} detected! ({remaining} more needed)")
-                else:
-                    print(f"✅ Blink {self.total_blinks} detected! Live person verified")
+                # Silent - no console output
             self.frame_counter = 0
         
         # Check head movement

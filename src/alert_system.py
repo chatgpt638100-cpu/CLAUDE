@@ -340,25 +340,17 @@ class AlertSystem:
             self._play_alert_sound(alert)
     
     def _send_console_alert(self, alert):
-        """Print alert to console"""
-        severity_colors = {
-            self.SEVERITY_INFO: '\033[94m',      # Blue
-            self.SEVERITY_WARNING: '\033[93m',   # Yellow
-            self.SEVERITY_CRITICAL: '\033[91m'   # Red
+        """Print SIMPLE alert to console - only essential info"""
+        # Map alert types to simple messages
+        alert_messages = {
+            self.ALERT_SLEEPING: f"✉️ {alert['student_name']} - Sleeping detected → Email sent",
+            self.ALERT_TALKING: f"✉️ {alert['student_name']} - Talking detected → Email sent",
+            self.ALERT_PHONE_USAGE: f"✉️ {alert['student_name']} - Phone usage detected → Email sent",
+            self.ALERT_PROXY_DETECTED: f"✉️ {alert['student_name']} - Proxy attempt detected → Email sent",
         }
-        reset_color = '\033[0m'
         
-        color = severity_colors.get(alert['severity'], '')
-        
-        print(f"\n{color}{'='*70}")
-        print(f"[{alert['severity']}] ALERT #{alert['id']}")
-        print(f"Type: {alert['type']}")
-        print(f"Student: {alert['student_name']}")
-        print(f"Time: {alert['timestamp']}")
-        print(f"Message: {alert['message']}")
-        if alert['details']:
-            print(f"Details: {alert['details']}")
-        print(f"{'='*70}{reset_color}\n")
+        message = alert_messages.get(alert['type'], f"✉️ {alert['student_name']} - Alert sent")
+        print(message)
     
     def _send_file_alert(self, alert):
         """Save alert to file"""
@@ -442,13 +434,11 @@ For any questions, please contact the school administration.
                 server.login(self.config['email_sender'], self.config['email_password'])
                 server.send_message(msg)
                 server.quit()
-                
-                print(f"✓ Email sent to {recipient}")
         
         except smtplib.SMTPAuthenticationError:
-            print(f"✗ Email authentication failed! Check Gmail App Password in config.yaml")
+            pass  # Silent - don't show errors
         except Exception as e:
-            print(f"✗ Email error: {e}")
+            pass  # Silent - don't show errors
     
     def _play_alert_sound(self, alert):
         """Play alert sound (platform-dependent)"""

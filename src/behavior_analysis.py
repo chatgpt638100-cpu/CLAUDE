@@ -341,7 +341,7 @@ class BehaviorAnalyzer:
         with open(log_file, 'w') as f:
             json.dump(logs, f, indent=4)
         
-        print(f"[{log_entry['timestamp']}] {student_name} {action} {behavior_type}")
+        # NO CONSOLE OUTPUT - silent logging
     
     def draw_behavior_overlay(self, frame, behavior_results):
         """
