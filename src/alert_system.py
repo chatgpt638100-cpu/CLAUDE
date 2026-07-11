@@ -38,9 +38,9 @@ class AlertSystem:
         # Default configuration
         self.config = {
             # Thresholds (in seconds)
-            'sleep_duration_threshold': 60,      # Alert if sleeping > 1 minute
-            'talk_duration_threshold': 120,      # Alert if talking > 2 minutes
-            'phone_usage_threshold': 30,         # Alert if phone detected > 30 seconds
+            'sleep_duration_threshold': 5,       # Alert if sleeping > 5 seconds
+            'talk_duration_threshold': 5,        # Alert if talking > 5 seconds
+            'phone_usage_threshold': 1,          # Alert immediately when phone detected
             
             # Count thresholds
             'max_violations_per_session': 3,     # Alert if > 3 violations
@@ -340,17 +340,8 @@ class AlertSystem:
             self._play_alert_sound(alert)
     
     def _send_console_alert(self, alert):
-        """Print SIMPLE alert to console - only essential info"""
-        # Map alert types to simple messages
-        alert_messages = {
-            self.ALERT_SLEEPING: f"✉️ {alert['student_name']} - Sleeping detected → Email sent",
-            self.ALERT_TALKING: f"✉️ {alert['student_name']} - Talking detected → Email sent",
-            self.ALERT_PHONE_USAGE: f"✉️ {alert['student_name']} - Phone usage detected → Email sent",
-            self.ALERT_PROXY_DETECTED: f"✉️ {alert['student_name']} - Proxy attempt detected → Email sent",
-        }
-        
-        message = alert_messages.get(alert['type'], f"✉️ {alert['student_name']} - Alert sent")
-        print(message)
+        """COMPLETELY SILENT - No console output at all"""
+        pass  # Do nothing - silent mode
     
     def _send_file_alert(self, alert):
         """Save alert to file"""
@@ -380,7 +371,7 @@ class AlertSystem:
         if self.config['email_password'] == 'YOUR_APP_PASSWORD_HERE' or not self.config['email_password']:
             # Only print this warning once
             if not hasattr(self, '_email_warning_shown'):
-                print("⚠ Email alerts disabled: Configure Gmail App Password in config/config.yaml")
+                pass  # Silent - no warning
                 self._email_warning_shown = True
             return
         

@@ -33,23 +33,18 @@ class SmartClassroomMonitor:
         """
         self.config = config or {}
         
-        # Initialize all components
-        print("Initializing Smart Classroom Monitoring System...")
-        
+        # Initialize all components (SILENT MODE)
         # Face Detection
-        print("  ✓ Loading Face Detector...")
         self.face_detector = FaceDetector(
             min_detection_confidence=self.config.get('face_detection_confidence', 0.6)
         )
         
         # Face Recognition
-        print("  ✓ Loading Face Recognizer...")
         self.face_recognizer = FaceRecognizer(
             model_path=self.config.get('model_path', 'models/trained_knn_model.pkl')
         )
         
         # Anti-Proxy Verification
-        print("  ✓ Loading Anti-Proxy Verifier...")
         self.anti_proxy = AntiProxyVerifier(
             ear_threshold=self.config.get('blink_threshold', 0.21),
             consec_frames=3,
@@ -57,7 +52,6 @@ class SmartClassroomMonitor:
         )
         
         # Behavior Analyzer
-        print("  ✓ Loading Behavior Analyzer...")
         self.behavior_analyzer = BehaviorAnalyzer(
             ear_threshold=self.config.get('sleep_ear_threshold', 0.22),
             ear_consec_frames=self.config.get('sleep_frames', 25),
@@ -66,25 +60,16 @@ class SmartClassroomMonitor:
         )
         
         # Phone Detector
-        print("  ✓ Loading Phone Detector...")
         self.phone_detector = PhoneDetector(
             model_path=self.config.get('yolo_model', 'yolov8n.pt'),
             confidence_threshold=self.config.get('phone_confidence', 0.5)
         )
         
         # Alert System
-        print("  ✓ Loading Alert System...")
         self.alert_system = AlertSystem(self.config.get('alert_config', {}))
         
-        # Verify email configuration
+        # Verify email configuration (SILENT)
         alert_config = self.config.get('alert_config', {})
-        if alert_config.get('enable_email_alerts'):
-            if alert_config.get('email_password') == 'YOUR_APP_PASSWORD_HERE':
-                print("\n⚠️  WARNING: Email alerts enabled but password not configured!")
-                print("   Edit config/config.yaml and set email_password")
-                print("   Get App Password: https://myaccount.google.com/apppasswords\n")
-            else:
-                print("  ✓ Email alerts configured")
         
         # Application state
         self.mode = "MONITORING"  # MONITORING, VERIFICATION, ATTENDANCE
@@ -100,7 +85,7 @@ class SmartClassroomMonitor:
         self.cached_behavior_results = []
         self.cached_phone_incidents = []
         
-        print("\n✓ System Ready!\n")
+        # System ready (silent mode - no print)
     
     def run_monitoring_mode(self, video_source=0):
         """
@@ -112,19 +97,9 @@ class SmartClassroomMonitor:
         cap = cv2.VideoCapture(video_source)
         
         if not cap.isOpened():
-            print(f"Error: Could not open video source {video_source}")
-            return
+            return  # Silent - no error message
         
-        print("=" * 70)
-        print("SMART CLASSROOM MONITORING SYSTEM - ACTIVE")
-        print("=" * 70)
-        print("\nControls:")
-        print("  q - Quit")
-        print("  a - Mark attendance for recognized students")
-        print("  r - Generate daily report")
-        print("  s - Show statistics")
-        print("  v - Switch to verification mode")
-        print("  SPACE - Pause/Resume\n")
+        # Silent mode - no startup messages
         
         paused = False
         
@@ -148,11 +123,9 @@ class SmartClassroomMonitor:
             key = cv2.waitKey(1) & 0xFF
             
             if key == ord('q'):
-                print("\nShutting down system...")
-                break
+                break  # Silent quit
             elif key == ord(' '):
                 paused = not paused
-                print("PAUSED" if paused else "RESUMED")
             elif key == ord('a'):
                 self.mark_attendance_for_all()
             elif key == ord('r'):
@@ -198,9 +171,19 @@ class SmartClassroomMonitor:
             
             # 3. ANTI-PROXY VERIFICATION & AUTOMATIC ATTENDANCE
             # Only check for recognized students (not Unknown)
+            # SKIP PROXY CHECK FOR BHAVA - she only talks
             for face in self.recognized_faces:
                 if face['name'] != 'Unknown':
                     student_name = face['name']
+                    
+                    # Skip proxy verification for Bhava
+                    if student_name.lower() == 'bhava':
+                        # Auto-mark attendance for Bhava without proxy check
+                        if student_name not in self.attendance_marked:
+                            success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                            if success:
+                                self.attendance_marked[student_name] = datetime.now()
+                        continue  # Skip proxy check
                     
                     # Check if already attempted to mark attendance for this student
                     if student_name not in self.attendance_marked:
@@ -517,13 +500,11 @@ class SmartClassroomMonitor:
         print("=" * 70 + "\n")
     
     def cleanup(self):
-        """Cleanup resources"""
-        print("\nCleaning up resources...")
+        """Cleanup resources (SILENT)"""
         self.face_detector.close()
         self.anti_proxy.close()
         self.behavior_analyzer.close()
         self.phone_detector.close()
-        print("✓ Cleanup complete\n")
 
 
 def main():
@@ -588,26 +569,19 @@ Examples:
                 import yaml
                 with open(config_path, 'r') as f:
                     config = yaml.safe_load(f)
-                print(f"✓ Loaded configuration from: {config_path}")
                 config_loaded = True
                 break
             except Exception as e:
-                print(f"⚠️ Failed to load config from {config_path}: {e}")
+                pass  # Silent
     
-    if not config_loaded:
-        print("⚠️ No configuration file found - using defaults")
-        print("   Expected location: config/config.yaml")
-    
-    # Initialize and run system
+    # Initialize and run system (SILENT MODE)
     try:
         monitor = SmartClassroomMonitor(config)
         monitor.run_monitoring_mode(video_source)
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user")
+        pass  # Silent
     except Exception as e:
-        print(f"\nError: {e}")
-        import traceback
-        traceback.print_exc()
+        pass  # Silent
 
 
 if __name__ == "__main__":
