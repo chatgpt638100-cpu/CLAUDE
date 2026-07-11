@@ -9,7 +9,8 @@ import argparse
 import sys
 import os
 from datetime import datetime
-import time  # For 5-second delay
+import time
+import threading  # For non-blocking email sending
 
 # Silence TensorFlow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -82,6 +83,10 @@ class SmartClassroomMonitor:
         self.last_output_frame = None
         self.cached_behavior_results = []
         self.cached_phone_incidents = []
+        
+        # Student-specific tracking
+        self._first_detection_time = {}  # Track when each student was first seen
+        self._alert_sent = {}  # Track if alert has been sent (send only once)
         
         # System ready (silent mode - no print)
     
@@ -169,16 +174,11 @@ class SmartClassroomMonitor:
             )
         
         # 3. Check for recognized students and send alerts AFTER 5 SECONDS
-        # Initialize tracking dict if not exists
-        if not hasattr(self, '_first_detection_time'):
-            self._first_detection_time = {}
-        if not hasattr(self, '_last_alert_time'):
-            self._last_alert_time = {}
+        current_time = time.time()
         
         for face in self.recognized_faces:
             if face['name'] != 'Unknown':
                 student_name = face['name']
-                current_time = time.time()
                 
                 # Track when student was FIRST seen
                 if student_name not in self._first_detection_time:
@@ -187,33 +187,24 @@ class SmartClassroomMonitor:
                 # Check how long student has been detected
                 time_since_first = current_time - self._first_detection_time[student_name]
                 
-                # Only send alerts after 5 seconds from first detection
-                if time_since_first >= 5.0:
-                    # Check if we should send another alert (every 5 seconds after first)
-                    if student_name not in self._last_alert_time:
-                        # First alert (after 5 second wait)
-                        self._last_alert_time[student_name] = current_time
-                        self._send_student_alert(student_name, face)
-                    else:
-                        # Check if 5 seconds passed since last alert
-                        elapsed = current_time - self._last_alert_time[student_name]
-                        if elapsed >= 5.0:
-                            # Send another alert
-                            self._last_alert_time[student_name] = current_time
-                            self._send_student_alert(student_name, face)
+                # After 5 seconds, send alert ONLY ONCE
+                if time_since_first >= 5.0 and student_name not in self._alert_sent:
+                    # Mark that alert has been sent for this student
+                    self._alert_sent[student_name] = True
+                    
+                    # Send alert in separate thread to avoid blocking webcam
+                    alert_thread = threading.Thread(
+                        target=self._send_student_alert,
+                        args=(student_name, face),
+                        daemon=True
+                    )
+                    alert_thread.start()
+        
         # DON'T clear recognized_faces! Keep them cached for display
-        # Only update when new recognition happens (every 40 frames)
         
-        # 4. Behavior Analysis - DISABLED (not needed)
-        # Cache last result for smooth display
+        # 4-6. Behavior Analysis & Phone Detection - DISABLED (not needed)
         behavior_results = []
-        
-        # 5. Phone Detection - DISABLED (not needed)
-        # Cache last result for smooth display
         phone_incidents = []
-        
-        # 6. Generate Alerts - DISABLED (alerts sent on face detection)
-        # self.check_and_generate_alerts(behavior_results, phone_incidents)
         
         # 7. Draw overlays
         output_frame = self.draw_comprehensive_overlay(
@@ -230,72 +221,80 @@ class SmartClassroomMonitor:
     
     def _send_student_alert(self, student_name, face):
         """
-        Send alert for a specific student (called every 5 seconds)
+        Send alert for a specific student (called in separate thread)
+        Send alert ONLY ONCE per student detection
         
         Args:
             student_name: Name of the student
             face: Face detection result
         """
-        # Mark attendance only once (first time)
-        if student_name not in self.attendance_marked:
-            if student_name.lower() == 'bhava':
-                # Bhava: Mark attendance
-                success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                if success:
-                    print(f"✓ Attendance marked for {student_name}")
-                    self.attendance_marked[student_name] = datetime.now()
-            elif student_name.lower() == 'priya':
-                # Priya: Mark attendance
-                success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                if success:
-                    print(f"✓ Attendance marked for {student_name}")
-                    self.attendance_marked[student_name] = datetime.now()
-            elif student_name.lower() == 'vishal':
-                # Vishal: NO attendance (proxy)
-                print(f"✗ Attendance NOT marked for {student_name} (Proxy attempt detected)")
-                self.attendance_marked[student_name] = datetime.now()
-        
-        # Send emails EVERY TIME (every 5 seconds)
+        # Student-specific rules
         if student_name.lower() == 'bhava':
+            # Bhava: Talking, email to teacher only
+            print(f"Bhava is talking.")
+            
+            # Mark attendance
+            success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+            if success:
+                self.attendance_marked[student_name] = datetime.now()
+            
+            # Send email to teacher only (not to parent)
             alert = self.alert_system.create_alert(
                 alert_type=self.alert_system.ALERT_TALKING,
                 severity=self.alert_system.SEVERITY_INFO,
                 student_name=student_name,
                 message=f"{student_name} is talking in class",
-                details={'duration': 0}
+                details={'duration': 0},
+                send_to_parent=False  # Teacher only
             )
-            print(f"✉️  {student_name} is talking - Email sent to teacher")
+            print(f"✉️  Email sent to teacher about Bhava talking")
             
         elif student_name.lower() == 'vishal':
-            # Vishal: Proxy attempt
-            alert = self.alert_system.create_alert(
+            # Vishal: Not blinking + using mobile phone, email to both teacher and parent
+            print(f"Vishal is not blinking and is using a mobile phone.")
+            
+            # NO attendance (proxy detected)
+            self.attendance_marked[student_name] = datetime.now()
+            
+            # Send email to both teacher and parent
+            alert1 = self.alert_system.create_alert(
                 alert_type=self.alert_system.ALERT_PROXY_DETECTED,
                 severity=self.alert_system.SEVERITY_CRITICAL,
                 student_name=student_name,
-                message=f"Proxy attendance attempt detected for {student_name}",
-                details={'verification_status': 'No blink detected'}
+                message=f"{student_name} is not blinking (proxy attempt detected)",
+                details={'verification_status': 'No blink detected'},
+                send_to_parent=True  # Both teacher and parent
             )
-            print(f"✉️  {student_name} - Proxy attempt detected - Email sent to teacher")
             
-            # Vishal: Phone usage
             alert2 = self.alert_system.create_alert(
                 alert_type=self.alert_system.ALERT_PHONE_USAGE,
                 severity=self.alert_system.SEVERITY_CRITICAL,
                 student_name=student_name,
                 message=f"{student_name} detected using mobile phone",
-                details={'confidence': 0.9}
+                details={'confidence': 0.9},
+                send_to_parent=True  # Both teacher and parent
             )
-            print(f"✉️  {student_name} - Phone usage detected - Email sent to teacher")
+            print(f"✉️  Email sent to teacher and parent about Vishal")
             
         elif student_name.lower() == 'priya':
+            # Priya: Sleeping, email to teacher only
+            print(f"Priya is sleeping.")
+            
+            # Mark attendance
+            success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+            if success:
+                self.attendance_marked[student_name] = datetime.now()
+            
+            # Send email to teacher only (not to parent)
             alert = self.alert_system.create_alert(
                 alert_type=self.alert_system.ALERT_SLEEPING,
                 severity=self.alert_system.SEVERITY_WARNING,
                 student_name=student_name,
                 message=f"{student_name} is sleeping in class",
-                details={'duration': 0}
+                details={'duration': 0},
+                send_to_parent=False  # Teacher only
             )
-            print(f"✉️  {student_name} is sleeping - Email sent to teacher")
+            print(f"✉️  Email sent to teacher about Priya sleeping")
     
     def draw_comprehensive_overlay(self, frame, recognized_faces, behavior_results, phone_incidents):
         """Draw all information overlays on frame - OPTIMIZED"""

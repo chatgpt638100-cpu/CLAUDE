@@ -271,7 +271,7 @@ class AlertSystem:
         
         return None
     
-    def create_alert(self, alert_type, severity, student_name, message, details=None):
+    def create_alert(self, alert_type, severity, student_name, message, details=None, send_to_parent=True):
         """
         Create an alert
         
@@ -281,6 +281,7 @@ class AlertSystem:
             student_name: Student name
             message: Alert message
             details: Additional details
+            send_to_parent: Whether to send to parent (default True, False = teacher only)
             
         Returns:
             Alert dictionary
@@ -292,7 +293,8 @@ class AlertSystem:
             'student_name': student_name,
             'message': message,
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'details': details or {}
+            'details': details or {},
+            'send_to_parent': send_to_parent
         }
         
         # Update statistics
@@ -364,7 +366,7 @@ class AlertSystem:
             json.dump(alerts, f, indent=4)
     
     def _send_email_alert(self, alert):
-        """Send alert via email with personalized greeting"""
+        """Send alert via email with personalized greeting and recipient control"""
         if not self.config['email_sender'] or not self.config['email_recipients']:
             return
         
@@ -376,8 +378,18 @@ class AlertSystem:
             return
         
         try:
+            # Determine recipients based on send_to_parent flag
+            send_to_parent = alert.get('send_to_parent', True)
+            
+            if send_to_parent:
+                # Send to all recipients (teacher + parent)
+                recipients_to_send = self.config['email_recipients']
+            else:
+                # Send only to teacher (first recipient)
+                recipients_to_send = [self.config['email_recipients'][0]] if self.config['email_recipients'] else []
+            
             # Send to each recipient separately with personalized greeting
-            for recipient in self.config['email_recipients']:
+            for recipient in recipients_to_send:
                 msg = MIMEMultipart()
                 msg['From'] = self.config['email_sender']
                 msg['To'] = recipient
