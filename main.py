@@ -302,7 +302,7 @@ class SmartClassroomMonitor:
         """
         Send alert for a specific student (called by email worker thread)
         Send alert ONLY ONCE per student detection
-        ONLY print the final message after 5 seconds
+        Wait internally for 5 seconds before sending
         
         Args:
             student_key: Student name in lowercase (bhava, vishal, priya)
@@ -320,44 +320,48 @@ class SmartClassroomMonitor:
                 self.attendance_marked[student_name] = datetime.now()
             
             # Send email to teacher only (not to parent)
-            alert = self.alert_system.create_alert(
-                alert_type=self.alert_system.ALERT_TALKING,
-                severity=self.alert_system.SEVERITY_INFO,
-                student_name=student_name,
-                message=f"{student_name} is talking in class",
-                details={'duration': 5},
-                send_to_parent=False  # Teacher only
-            )
-            
-            # ONLY ONE MESSAGE after 5 seconds
-            print(f"Bhava is talking - email sent to teacher")
+            try:
+                alert = self.alert_system.create_alert(
+                    alert_type=self.alert_system.ALERT_TALKING,
+                    severity=self.alert_system.SEVERITY_INFO,
+                    student_name=student_name,
+                    message=f"{student_name} is talking in class",
+                    details={'duration': 5},
+                    send_to_parent=False  # Teacher only
+                )
+                # Simple message (no comma, no dash)
+                print("Bhava is talking email sent to teacher")
+            except Exception as e:
+                print(f"Bhava is talking email FAILED to send: {e}")
             
         elif student_key == 'vishal':
             # Vishal: Not blinking + using mobile phone, email to both teacher and parent
             
             # NO attendance (proxy detected) - silent
             
-            # Send email to both teacher and parent
-            alert1 = self.alert_system.create_alert(
-                alert_type=self.alert_system.ALERT_PROXY_DETECTED,
-                severity=self.alert_system.SEVERITY_CRITICAL,
-                student_name=student_name,
-                message=f"{student_name} is not blinking (proxy attempt detected)",
-                details={'verification_status': 'No blink detected'},
-                send_to_parent=True  # Both teacher and parent
-            )
-            
-            alert2 = self.alert_system.create_alert(
-                alert_type=self.alert_system.ALERT_PHONE_USAGE,
-                severity=self.alert_system.SEVERITY_CRITICAL,
-                student_name=student_name,
-                message=f"{student_name} detected using mobile phone",
-                details={'confidence': 0.9},
-                send_to_parent=True  # Both teacher and parent
-            )
-            
-            # ONLY ONE MESSAGE after 5 seconds
-            print(f"Vishal is not blinking and is using a mobile phone - email sent to teacher and parent")
+            try:
+                # Send email to both teacher and parent
+                alert1 = self.alert_system.create_alert(
+                    alert_type=self.alert_system.ALERT_PROXY_DETECTED,
+                    severity=self.alert_system.SEVERITY_CRITICAL,
+                    student_name=student_name,
+                    message=f"{student_name} is not blinking (proxy attempt detected)",
+                    details={'verification_status': 'No blink detected'},
+                    send_to_parent=True  # Both teacher and parent
+                )
+                
+                alert2 = self.alert_system.create_alert(
+                    alert_type=self.alert_system.ALERT_PHONE_USAGE,
+                    severity=self.alert_system.SEVERITY_CRITICAL,
+                    student_name=student_name,
+                    message=f"{student_name} detected using mobile phone",
+                    details={'confidence': 0.9},
+                    send_to_parent=True  # Both teacher and parent
+                )
+                # Simple message
+                print("Vishal is not blinking and is using a mobile phone email sent to teacher and parent")
+            except Exception as e:
+                print(f"Vishal email FAILED to send: {e}")
             
         elif student_key == 'priya':
             # Priya: Sleeping, email to teacher only
@@ -367,21 +371,23 @@ class SmartClassroomMonitor:
             if success:
                 self.attendance_marked[student_name] = datetime.now()
             
-            # Send email to teacher only (not to parent)
-            alert = self.alert_system.create_alert(
-                alert_type=self.alert_system.ALERT_SLEEPING,
-                severity=self.alert_system.SEVERITY_WARNING,
-                student_name=student_name,
-                message=f"{student_name} is sleeping in class",
-                details={'duration': 5},
-                send_to_parent=False  # Teacher only
-            )
-            
-            # ONLY ONE MESSAGE after 5 seconds
-            print(f"Priya is sleeping - email sent to teacher")
+            try:
+                # Send email to teacher only (not to parent)
+                alert = self.alert_system.create_alert(
+                    alert_type=self.alert_system.ALERT_SLEEPING,
+                    severity=self.alert_system.SEVERITY_WARNING,
+                    student_name=student_name,
+                    message=f"{student_name} is sleeping in class",
+                    details={'duration': 5},
+                    send_to_parent=False  # Teacher only
+                )
+                # Simple message
+                print("Priya is sleeping email sent to teacher")
+            except Exception as e:
+                print(f"Priya sleeping email FAILED to send: {e}")
     
     def draw_comprehensive_overlay(self, frame, recognized_faces, behavior_results, phone_incidents):
-        """Draw all information overlays on frame - OPTIMIZED"""
+        """Draw all information overlays on frame - LARGER RECTANGLES"""
         output_frame = frame.copy()
         
         # DEBUG: Check if we have faces to draw
@@ -392,23 +398,44 @@ class SmartClassroomMonitor:
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2
             )
         
-        # Draw recognized faces with IMPROVED DISPLAY
+        # Draw recognized faces with LARGER RECTANGLES
         for face in recognized_faces:
             x, y, w, h = face['bbox']
             name = face['name']
             
+            # EXPAND rectangle by 30% on all sides to cover whole face
+            padding_w = int(w * 0.3)
+            padding_h = int(h * 0.3)
+            
+            x_expanded = max(0, x - padding_w)
+            y_expanded = max(0, y - padding_h)
+            w_expanded = w + (2 * padding_w)
+            h_expanded = h + (2 * padding_h)
+            
+            # Ensure within frame bounds
+            x_expanded = max(0, x_expanded)
+            y_expanded = max(0, y_expanded)
+            w_expanded = min(w_expanded, frame.shape[1] - x_expanded)
+            h_expanded = min(h_expanded, frame.shape[0] - y_expanded)
+            
             # Color based on recognition
             color = (0, 255, 0) if name != 'Unknown' else (0, 165, 255)
             
-            # Draw THICK rectangular box around face
-            cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 3)
+            # Draw THICK rectangular box around face (LARGER NOW)
+            cv2.rectangle(
+                output_frame, 
+                (x_expanded, y_expanded), 
+                (x_expanded + w_expanded, y_expanded + h_expanded), 
+                color, 
+                3
+            )
             
             # Draw student name in a BETTER way - with background
             label = name  # Just the name, no confidence
             
             # Calculate text size for background
             font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.7
+            font_scale = 0.9  # Larger font
             font_thickness = 2
             (text_width, text_height), baseline = cv2.getTextSize(
                 label, font, font_scale, font_thickness
@@ -417,15 +444,15 @@ class SmartClassroomMonitor:
             # Draw background rectangle for text
             cv2.rectangle(
                 output_frame,
-                (x, y - text_height - 10),
-                (x + text_width + 10, y),
+                (x_expanded, y_expanded - text_height - 15),
+                (x_expanded + text_width + 15, y_expanded),
                 color,
                 -1  # Filled rectangle
             )
             
             # Draw name on top of face box (white text on colored background)
             cv2.putText(
-                output_frame, label, (x + 5, y - 5),
+                output_frame, label, (x_expanded + 8, y_expanded - 8),
                 font, font_scale, (255, 255, 255), font_thickness
             )
         
