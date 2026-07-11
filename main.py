@@ -176,20 +176,21 @@ class SmartClassroomMonitor:
         Returns:
             Processed frame with overlays
         """
-        # Process only every 10th frame for 60 FPS display, cache result for others
-        if self.frame_count % 10 != 0 and self.last_output_frame is not None:
+        # ULTRA FAST MODE: Process only every 5th frame, show cached result for others
+        # This gives 60 FPS display with minimal processing lag
+        if self.frame_count % 5 != 0 and self.last_output_frame is not None:
             return self.last_output_frame
         
         output_frame = frame.copy()
         
-        # 1. Face Detection (every 10 frames - cache result)
-        if self.frame_count % 10 == 0:
+        # 1. Face Detection (every 15 frames - reduced frequency)
+        if self.frame_count % 15 == 0:
             self.face_detector.detect_faces(frame)
         
         face_crops = self.face_detector.get_face_crops(frame)
         
-        # 2. Face Recognition (every 20 frames)
-        if self.frame_count % 20 == 0 and face_crops:
+        # 2. Face Recognition (every 30 frames - reduced frequency)
+        if self.frame_count % 30 == 0 and face_crops:
             self.recognized_faces = self.face_recognizer.recognize_multiple_faces(
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
@@ -218,8 +219,8 @@ class SmartClassroomMonitor:
                                 'checking': True
                             }
                         
-                        # Run verification for this student (every 20 frames)
-                        if self._proxy_check_students[student_name]['checking'] and self.frame_count % 20 == 0:
+                        # Run verification for this student (every 30 frames - reduced frequency)
+                        if self._proxy_check_students[student_name]['checking'] and self.frame_count % 30 == 0:
                             verifier = self._proxy_check_students[student_name]['verifier']
                             proxy_result = verifier.verify_liveness(frame)
                             
@@ -245,15 +246,15 @@ class SmartClassroomMonitor:
         else:
             self.recognized_faces = []
         
-        # 4. Behavior Analysis (every 30 frames - MediaPipe is heavy)
+        # 4. Behavior Analysis (every 60 frames - MediaPipe is VERY heavy, reduced to 1/sec)
         # Cache last result for smooth display
-        if self.frame_count % 30 == 0:
+        if self.frame_count % 60 == 0:
             self.cached_behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
         behavior_results = getattr(self, 'cached_behavior_results', [])
         
-        # 5. Phone Detection (every 60 frames - YOLOv8 is VERY heavy, once per second)
+        # 5. Phone Detection (every 90 frames - YOLOv8 is VERY heavy, once every 1.5 seconds)
         # Cache last result for smooth display
-        if self.frame_count % 60 == 0:
+        if self.frame_count % 90 == 0:
             self.phone_detector.detect_phones(frame)
             self.cached_phone_incidents = self.phone_detector.match_phone_to_student(
                 self.phone_detector.detections,
@@ -278,27 +279,26 @@ class SmartClassroomMonitor:
         return output_frame
     
     def draw_comprehensive_overlay(self, frame, recognized_faces, behavior_results, phone_incidents):
-        """Draw all information overlays on frame"""
+        """Draw all information overlays on frame - OPTIMIZED"""
         output_frame = frame.copy()
         
         # Draw recognized faces with IMPROVED DISPLAY
         for face in recognized_faces:
             x, y, w, h = face['bbox']
             name = face['name']
-            confidence = face['confidence']
             
             # Color based on recognition
             color = (0, 255, 0) if name != 'Unknown' else (0, 165, 255)
             
-            # Draw THICKER rectangular box around face
-            cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 3)
+            # Draw rectangular box around face (THINNER for performance)
+            cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 2)
             
             # Draw student name in a BETTER way - with background
             label = name  # Just the name, no confidence
             
             # Calculate text size for background
             font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.7
+            font_scale = 0.6
             font_thickness = 2
             (text_width, text_height), baseline = cv2.getTextSize(
                 label, font, font_scale, font_thickness
