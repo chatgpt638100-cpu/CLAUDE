@@ -310,9 +310,11 @@ class SmartClassroomMonitor:
                 # After 5 seconds, trigger alert ONCE
                 if elapsed >= 5.0 and not self.alert_sent[student_key]:
                     print(f"[DEBUG] 5 seconds reached for {student_key}! Sending to email queue...")
+                    print(f"[DEBUG] alert_sent[{student_key}] = {self.alert_sent[student_key]}")
                     
                     # Mark alert as sent
                     self.alert_sent[student_key] = True
+                    print(f"[DEBUG] Set alert_sent[{student_key}] = True")
                     
                     # Find the face object for this student
                     student_face = None
@@ -321,15 +323,19 @@ class SmartClassroomMonitor:
                             student_face = face
                             break
                     
-                    # Add to email queue (non-blocking)
-                    if student_face and not self.email_queue.full():
-                        try:
-                            self.email_queue.put_nowait((student_key, student_face))
-                            print(f"[DEBUG] {student_key} added to email queue successfully")
-                        except Exception as e:
-                            print(f"[DEBUG] Failed to add to queue: {e}")
+                    if student_face:
+                        print(f"[DEBUG] Found face for {student_key}, adding to queue...")
+                        # Add to email queue (non-blocking)
+                        if not self.email_queue.full():
+                            try:
+                                self.email_queue.put_nowait((student_key, student_face))
+                                print(f"[DEBUG] {student_key} added to email queue successfully")
+                            except Exception as e:
+                                print(f"[DEBUG] Failed to add to queue: {e}")
+                        else:
+                            print(f"[DEBUG] Queue is full!")
                     else:
-                        print(f"[DEBUG] Queue full or face not found")
+                        print(f"[DEBUG] ERROR: Could not find face object for {student_key}")
             
             else:
                 # Student not currently detected
