@@ -140,7 +140,7 @@ class SmartClassroomMonitor:
         
         print("\n✓ System initialization complete!")
         print("=" * 70)
-        print("\nStarting webcam...\n")
+        print()
     
     def run_monitoring_mode(self, video_source=0):
         """
@@ -149,7 +149,7 @@ class SmartClassroomMonitor:
         Args:
             video_source: Camera index or video file path
         """
-        print(f"Opening video source: {video_source}")
+        print("Starting webcam...")
         cap = cv2.VideoCapture(video_source)
         
         if not cap.isOpened():
@@ -162,18 +162,14 @@ class SmartClassroomMonitor:
             return
         
         print("✓ Webcam opened successfully!")
+        print("Monitoring active! Press 'q' to quit.")
+        print("=" * 70)
+        print()
         
         # Set camera properties for better performance
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         cap.set(cv2.CAP_PROP_FPS, 30)
-        
-        print("\nCamera settings:")
-        print(f"  Resolution: {int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}x{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}")
-        print(f"  FPS: {int(cap.get(cv2.CAP_PROP_FPS))}")
-        print("\nMonitoring active! Press 'q' to quit.")
-        print("=" * 70)
-        print()
         
         paused = False
         
@@ -204,7 +200,7 @@ class SmartClassroomMonitor:
             
             if key == ord('q'):
                 print("\nShutting down...")
-                break  # Silent quit
+                break
             elif key == ord(' '):
                 paused = not paused
             elif key == ord('a'):
@@ -223,35 +219,23 @@ class SmartClassroomMonitor:
     
     def _email_worker(self):
         """Background worker thread that sends emails from queue (non-blocking)"""
-        print("[DEBUG] Email worker thread started")
         while True:
             try:
                 email_task = self.email_queue.get(timeout=1)
                 if email_task is None:
-                    print("[DEBUG] Email worker stopping...")
                     break
                 
                 # Unpack task
                 student_name, face = email_task
-                print(f"[DEBUG] Email worker received task for: {student_name}")
-                print(f"[DEBUG] Calling _send_student_alert_actual({student_name}, face)...")
                 
                 # Send the actual email
-                try:
-                    self._send_student_alert_actual(student_name, face)
-                    print(f"[DEBUG] _send_student_alert_actual completed for {student_name}")
-                except Exception as e:
-                    print(f"[DEBUG] ERROR in _send_student_alert_actual: {e}")
-                    import traceback
-                    traceback.print_exc()
+                self._send_student_alert_actual(student_name, face)
                 
                 self.email_queue.task_done()
             except Empty:
                 continue
             except Exception as e:
-                print(f"[DEBUG] Email worker error: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"ERROR: Email sending failed - {e}")
     
     def process_frame(self, frame):
         """
@@ -292,9 +276,6 @@ class SmartClassroomMonitor:
             if face['name'] != 'Unknown':
                 student_name_raw = face['name'].strip().lower()
                 current_students.add(student_name_raw)
-                # DEBUG: Print when face is recognized
-                if self.frame_count % 30 == 0:  # Print every second
-                    print(f"[DEBUG] Recognized: {student_name_raw}")
         
         # Check each student independently
         for student_key in ["bhava", "vishal", "priya"]:
@@ -306,24 +287,14 @@ class SmartClassroomMonitor:
                 if self.detection_start_times[student_key] is None:
                     self.detection_start_times[student_key] = current_time
                     self.waiting_message_shown[student_key] = False
-                    # DEBUG: Print when timer starts
-                    print(f"[DEBUG] Timer started for {student_key}")
                 
                 # Calculate elapsed time
                 elapsed = current_time - self.detection_start_times[student_key]
                 
-                # DEBUG: Print elapsed time every second
-                if self.frame_count % 30 == 0:
-                    print(f"[DEBUG] {student_key} elapsed: {elapsed:.1f}s / 5.0s")
-                
                 # After 5 seconds, trigger alert ONCE
                 if elapsed >= 5.0 and not self.alert_sent[student_key]:
-                    print(f"[DEBUG] 5 seconds reached for {student_key}! Sending to email queue...")
-                    print(f"[DEBUG] alert_sent[{student_key}] = {self.alert_sent[student_key]}")
-                    
                     # Mark alert as sent
                     self.alert_sent[student_key] = True
-                    print(f"[DEBUG] Set alert_sent[{student_key}] = True")
                     
                     # Find the face object for this student
                     student_face = None
@@ -333,18 +304,12 @@ class SmartClassroomMonitor:
                             break
                     
                     if student_face:
-                        print(f"[DEBUG] Found face for {student_key}, adding to queue...")
                         # Add to email queue (non-blocking)
                         if not self.email_queue.full():
                             try:
                                 self.email_queue.put_nowait((student_key, student_face))
-                                print(f"[DEBUG] {student_key} added to email queue successfully")
                             except Exception as e:
-                                print(f"[DEBUG] Failed to add to queue: {e}")
-                        else:
-                            print(f"[DEBUG] Queue is full!")
-                    else:
-                        print(f"[DEBUG] ERROR: Could not find face object for {student_key}")
+                                print(f"ERROR: Failed to queue alert - {e}")
             
             else:
                 # Student not currently detected
@@ -374,29 +339,24 @@ class SmartClassroomMonitor:
     def _send_student_alert_actual(self, student_key, face):
         """
         Send alert for a specific student (called by email worker thread)
-        Send alert ONLY ONCE per student detection
         
         Args:
             student_key: Student name in lowercase (bhava, vishal, priya)
             face: Face detection result
         """
-        print(f"[DEBUG] _send_student_alert_actual called for: {student_key}")
         student_name = student_key.capitalize()
         
         # Student-specific rules
         if student_key == 'bhava':
-            print(f"[DEBUG] Processing Bhava alert...")
             # Bhava: Talking, email to teacher only
             
-            # Mark attendance (silent)
+            # Mark attendance
             success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
             if success:
                 self.attendance_marked[student_name] = datetime.now()
-                print(f"[DEBUG] Attendance marked for Bhava")
             
             # Send email to teacher only (not to parent)
             try:
-                print(f"[DEBUG] Creating alert for Bhava...")
                 alert = self.alert_system.create_alert(
                     alert_type=self.alert_system.ALERT_TALKING,
                     severity=self.alert_system.SEVERITY_INFO,
@@ -405,22 +365,16 @@ class SmartClassroomMonitor:
                     details={'duration': 5},
                     send_to_parent=False  # Teacher only
                 )
-                print(f"[DEBUG] Alert created successfully")
-                # Simple message (no comma, no dash)
-                print("Bhava is talking email sent to teacher")
+                print("Attendance marked and email sent to teacher")
             except Exception as e:
-                print(f"Bhava is talking email FAILED to send: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"ERROR: Email failed - {e}")
             
         elif student_key == 'vishal':
-            print(f"[DEBUG] Processing Vishal alert...")
             # Vishal: Not blinking + using mobile phone, email to both teacher and parent
             
-            # NO attendance (proxy detected) - silent
+            # NO attendance (proxy detected)
             
             try:
-                print(f"[DEBUG] Creating alerts for Vishal...")
                 # Send email to both teacher and parent
                 alert1 = self.alert_system.create_alert(
                     alert_type=self.alert_system.ALERT_PROXY_DETECTED,
@@ -439,26 +393,19 @@ class SmartClassroomMonitor:
                     details={'confidence': 0.9},
                     send_to_parent=True  # Both teacher and parent
                 )
-                print(f"[DEBUG] Alerts created successfully")
-                # Simple message
-                print("Vishal is not blinking and is using a mobile phone email sent to teacher and parent")
+                print("Email sent to teacher and parent")
             except Exception as e:
-                print(f"Vishal email FAILED to send: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"ERROR: Email failed - {e}")
             
         elif student_key == 'priya':
-            print(f"[DEBUG] Processing Priya alert...")
             # Priya: Sleeping, email to teacher only
             
-            # Mark attendance (silent)
+            # Mark attendance
             success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
             if success:
                 self.attendance_marked[student_name] = datetime.now()
-                print(f"[DEBUG] Attendance marked for Priya")
             
             try:
-                print(f"[DEBUG] Creating alert for Priya...")
                 # Send email to teacher only (not to parent)
                 alert = self.alert_system.create_alert(
                     alert_type=self.alert_system.ALERT_SLEEPING,
@@ -468,15 +415,9 @@ class SmartClassroomMonitor:
                     details={'duration': 5},
                     send_to_parent=False  # Teacher only
                 )
-                print(f"[DEBUG] Alert created successfully")
-                # Simple message
-                print("Priya is sleeping email sent to teacher")
+                print("Attendance marked and email sent to teacher")
             except Exception as e:
-                print(f"Priya sleeping email FAILED to send: {e}")
-                import traceback
-                traceback.print_exc()
-        
-        print(f"[DEBUG] _send_student_alert_actual completed for {student_key}")
+                print(f"ERROR: Email failed - {e}")
     
     def draw_comprehensive_overlay(self, frame, recognized_faces, behavior_results, phone_incidents):
         """Draw all information overlays on frame - LARGER RECTANGLES"""
