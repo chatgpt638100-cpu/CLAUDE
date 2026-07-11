@@ -257,8 +257,8 @@ class SmartClassroomMonitor:
                                     if success:
                                         self.attendance_marked[student_name] = datetime.now()
                                         print(f"✅ LIVENESS VERIFIED for {student_name} - Attendance marked!")
-        else:
-            self.recognized_faces = []
+        # DON'T clear recognized_faces! Keep them cached for display
+        # Only update when new recognition happens (every 40 frames)
         
         # 4. Behavior Analysis (every 90 frames - MediaPipe is VERY heavy, only every 3 seconds)
         # Cache last result for smooth display
@@ -296,6 +296,14 @@ class SmartClassroomMonitor:
         """Draw all information overlays on frame - OPTIMIZED"""
         output_frame = frame.copy()
         
+        # DEBUG: Check if we have faces to draw
+        if not recognized_faces:
+            # No faces detected yet - show message
+            cv2.putText(
+                output_frame, "Detecting faces...", (10, 120),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2
+            )
+        
         # Draw recognized faces with IMPROVED DISPLAY
         for face in recognized_faces:
             x, y, w, h = face['bbox']
@@ -304,15 +312,15 @@ class SmartClassroomMonitor:
             # Color based on recognition
             color = (0, 255, 0) if name != 'Unknown' else (0, 165, 255)
             
-            # Draw rectangular box around face (THINNER for performance)
-            cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 2)
+            # Draw THICK rectangular box around face
+            cv2.rectangle(output_frame, (x, y), (x + w, y + h), color, 3)
             
             # Draw student name in a BETTER way - with background
             label = name  # Just the name, no confidence
             
             # Calculate text size for background
             font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.6
+            font_scale = 0.7
             font_thickness = 2
             (text_width, text_height), baseline = cv2.getTextSize(
                 label, font, font_scale, font_thickness
