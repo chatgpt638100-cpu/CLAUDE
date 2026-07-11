@@ -45,8 +45,8 @@ class AlertSystem:
             # Count thresholds
             'max_violations_per_session': 3,     # Alert if > 3 violations
             
-            # Alert cooldown (seconds) - prevent spam
-            'alert_cooldown': 300,               # 5 minutes between same alerts
+            # Alert cooldown (seconds) - NO COOLDOWN for continuous emails
+            'alert_cooldown': 0,                 # Send alerts every time (no cooldown)
             
             # Notification methods
             'enable_console_alerts': True,

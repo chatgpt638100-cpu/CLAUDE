@@ -107,15 +107,15 @@ class SmartClassroomMonitor:
                 
                 self.frame_count += 1
                 
-                # Process frame with error handling
+                # Process frame with error handling (non-blocking)
                 try:
                     output_frame = self.process_frame(frame)
+                    
+                    # Display frame
+                    cv2.imshow('Smart Classroom Monitor', output_frame)
                 except Exception as e:
-                    # If error, just show the raw frame (silent)
-                    output_frame = frame
-                
-                # Display frame
-                cv2.imshow('Smart Classroom Monitor', output_frame)
+                    # If error, just show the raw frame
+                    cv2.imshow('Smart Classroom Monitor', frame)
             else:
                 cv2.waitKey(100)
             
@@ -168,29 +168,39 @@ class SmartClassroomMonitor:
                 threshold=self.config.get('recognition_threshold', 0.6)
             )
         
-        # 3. Check for recognized students and send alerts EVERY 5 SECONDS
+        # 3. Check for recognized students and send alerts AFTER 5 SECONDS
         # Initialize tracking dict if not exists
+        if not hasattr(self, '_first_detection_time'):
+            self._first_detection_time = {}
         if not hasattr(self, '_last_alert_time'):
             self._last_alert_time = {}
         
         for face in self.recognized_faces:
             if face['name'] != 'Unknown':
                 student_name = face['name']
-                
-                # Check if we should send alert (every 5 seconds)
                 current_time = time.time()
                 
-                if student_name not in self._last_alert_time:
-                    # First detection - send immediately
-                    self._last_alert_time[student_name] = current_time
-                    self._send_student_alert(student_name, face)
-                else:
-                    # Check if 5 seconds have passed since last alert
-                    elapsed = current_time - self._last_alert_time[student_name]
-                    if elapsed >= 5.0:
-                        # 5 seconds passed - send alert again
+                # Track when student was FIRST seen
+                if student_name not in self._first_detection_time:
+                    self._first_detection_time[student_name] = current_time
+                
+                # Check how long student has been detected
+                time_since_first = current_time - self._first_detection_time[student_name]
+                
+                # Only send alerts after 5 seconds from first detection
+                if time_since_first >= 5.0:
+                    # Check if we should send another alert (every 5 seconds after first)
+                    if student_name not in self._last_alert_time:
+                        # First alert (after 5 second wait)
                         self._last_alert_time[student_name] = current_time
                         self._send_student_alert(student_name, face)
+                    else:
+                        # Check if 5 seconds passed since last alert
+                        elapsed = current_time - self._last_alert_time[student_name]
+                        if elapsed >= 5.0:
+                            # Send another alert
+                            self._last_alert_time[student_name] = current_time
+                            self._send_student_alert(student_name, face)
         # DON'T clear recognized_faces! Keep them cached for display
         # Only update when new recognition happens (every 40 frames)
         
