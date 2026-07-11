@@ -51,19 +51,11 @@ class SmartClassroomMonitor:
             blink_threshold=self.config.get('required_blinks', 2)
         )
         
-        # Behavior Analyzer
-        self.behavior_analyzer = BehaviorAnalyzer(
-            ear_threshold=self.config.get('sleep_ear_threshold', 0.22),
-            ear_consec_frames=self.config.get('sleep_frames', 25),
-            mar_threshold=self.config.get('talk_mar_threshold', 0.6),
-            mar_consec_frames=self.config.get('talk_frames', 3)
-        )
+        # Behavior Analyzer - DISABLED (not needed, simplifying system)
+        # self.behavior_analyzer = BehaviorAnalyzer(...)
         
-        # Phone Detector
-        self.phone_detector = PhoneDetector(
-            model_path=self.config.get('yolo_model', 'yolov8n.pt'),
-            confidence_threshold=self.config.get('phone_confidence', 0.5)
-        )
+        # Phone Detector - DISABLED (not needed, simplifying system)
+        # self.phone_detector = PhoneDetector(...)
         
         # Alert System
         self.alert_system = AlertSystem(self.config.get('alert_config', {}))
@@ -169,97 +161,71 @@ class SmartClassroomMonitor:
                 threshold=self.config.get('recognition_threshold', 0.6)
             )
             
-            # 3. ANTI-PROXY VERIFICATION & AUTOMATIC ATTENDANCE
-            # Only check for recognized students (not Unknown)
-            # SKIP PROXY CHECK FOR BHAVA - she only talks
+            # 3. SIMPLIFIED LOGIC - Just send emails based on student
+            # BHAVA: Only talking email
+            # VISHAL: Proxy + Phone emails
+            # PRIYA: Only sleeping email
             for face in self.recognized_faces:
                 if face['name'] != 'Unknown':
                     student_name = face['name']
                     
-                    # Skip proxy verification for Bhava
-                    if student_name.lower() == 'bhava':
-                        # Auto-mark attendance for Bhava without proxy check
-                        if student_name not in self.attendance_marked:
-                            success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                            if success:
-                                self.attendance_marked[student_name] = datetime.now()
-                        continue  # Skip proxy check
-                    
-                    # Check if already attempted to mark attendance for this student
+                    # Check if already sent email for this student
                     if student_name not in self.attendance_marked:
-                        # Start proxy check for this specific student
-                        # Initialize tracking if first time seeing this student
-                        if not hasattr(self, '_proxy_check_students'):
-                            self._proxy_check_students = {}
-                        
-                        if student_name not in self._proxy_check_students:
-                            self._proxy_check_students[student_name] = {
-                                'verifier': AntiProxyVerifier(
-                                    ear_threshold=self.config.get('blink_threshold', 0.21),
-                                    consec_frames=3,
-                                    blink_threshold=self.config.get('required_blinks', 1)
-                                ),
-                                'checking': True,
-                                'last_check_frame': self.frame_count
-                            }
-                            # Silent - no console output
-                        
-                        # Run verification for this student ONLY if still checking
-                        # Call every frame during verification period (8 seconds)
-                        if self._proxy_check_students[student_name]['checking']:
-                            verifier = self._proxy_check_students[student_name]['verifier']
+                        # Mark attendance
+                        success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
+                        if success:
+                            self.attendance_marked[student_name] = datetime.now()
+                            print(f"✓ Attendance marked for {student_name}")
                             
-                            # Only call verify_liveness every 10 frames to reduce MediaPipe load
-                            frame_since_start = self.frame_count - self._proxy_check_students[student_name]['last_check_frame']
-                            if frame_since_start % 10 == 0:
-                                proxy_result = verifier.verify_liveness(frame)
-                                
-                                # Check if verification completed (8 seconds passed OR blink detected)
-                                if proxy_result.get('verification_complete', False):
-                                    self._proxy_check_students[student_name]['checking'] = False
-                                    
-                                    if proxy_result['is_live']:
-                                        # Real person detected - mark attendance
-                                        success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                                        if success:
-                                            self.attendance_marked[student_name] = datetime.now()
-                                            # Silent - no console output
-                                    else:
-                                        # Proxy detected after 8 seconds - send alert
-                                        proxy_alert = self.alert_system.check_proxy_attendance_alert(
-                                            student_name, 
-                                            proxy_result
-                                        )
-                                        # Mark as checked to prevent repeated alerts
-                                        self.attendance_marked[student_name] = datetime.now()
-                                elif proxy_result['is_live'] and proxy_result['blinks'] >= 1:
-                                    # Blink detected before 8 seconds! Instant verification
-                                    self._proxy_check_students[student_name]['checking'] = False
-                                    success = self.face_recognizer.mark_attendance(student_name, face['confidence'])
-                                    if success:
-                                        self.attendance_marked[student_name] = datetime.now()
-                                        # Silent - no console output
+                            # Send specific email based on student
+                            if student_name.lower() == 'bhava':
+                                # Bhava: Only talking
+                                alert = self.alert_system.create_alert(
+                                    alert_type=self.alert_system.ALERT_TALKING,
+                                    severity=self.alert_system.SEVERITY_INFO,
+                                    student_name=student_name,
+                                    message=f"{student_name} is talking in class",
+                                    details={'duration': 0}
+                                )
+                            elif student_name.lower() == 'vishal':
+                                # Vishal: Proxy attempt
+                                alert = self.alert_system.create_alert(
+                                    alert_type=self.alert_system.ALERT_PROXY_DETECTED,
+                                    severity=self.alert_system.SEVERITY_CRITICAL,
+                                    student_name=student_name,
+                                    message=f"Proxy attendance attempt detected for {student_name}",
+                                    details={'verification_status': 'No blink detected'}
+                                )
+                                # Vishal: Phone usage
+                                alert2 = self.alert_system.create_alert(
+                                    alert_type=self.alert_system.ALERT_PHONE_USAGE,
+                                    severity=self.alert_system.SEVERITY_CRITICAL,
+                                    student_name=student_name,
+                                    message=f"{student_name} detected using mobile phone",
+                                    details={'confidence': 0.9}
+                                )
+                            elif student_name.lower() == 'priya':
+                                # Priya: Sleeping
+                                alert = self.alert_system.create_alert(
+                                    alert_type=self.alert_system.ALERT_SLEEPING,
+                                    severity=self.alert_system.SEVERITY_WARNING,
+                                    student_name=student_name,
+                                    message=f"{student_name} is sleeping in class",
+                                    details={'duration': 0}
+                                )
         # DON'T clear recognized_faces! Keep them cached for display
         # Only update when new recognition happens (every 40 frames)
         
-        # 4. Behavior Analysis (every 90 frames - MediaPipe is VERY heavy, only every 3 seconds)
+        # 4. Behavior Analysis - DISABLED (not needed)
         # Cache last result for smooth display
-        if self.frame_count % 90 == 0:
-            self.cached_behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
-        behavior_results = getattr(self, 'cached_behavior_results', [])
+        behavior_results = []
         
-        # 5. Phone Detection (every 120 frames - YOLOv8 is VERY heavy, once every 4 seconds)
+        # 5. Phone Detection - DISABLED (not needed)
         # Cache last result for smooth display
-        if self.frame_count % 120 == 0:
-            self.phone_detector.detect_phones(frame)
-            self.cached_phone_incidents = self.phone_detector.match_phone_to_student(
-                self.phone_detector.detections,
-                self.recognized_faces
-            )
-        phone_incidents = getattr(self, 'cached_phone_incidents', [])
+        phone_incidents = []
         
-        # 6. Generate Alerts
-        self.check_and_generate_alerts(behavior_results, phone_incidents)
+        # 6. Generate Alerts - DISABLED (alerts sent on face detection)
+        # self.check_and_generate_alerts(behavior_results, phone_incidents)
         
         # 7. Draw overlays
         output_frame = self.draw_comprehensive_overlay(
@@ -503,8 +469,8 @@ class SmartClassroomMonitor:
         """Cleanup resources (SILENT)"""
         self.face_detector.close()
         self.anti_proxy.close()
-        self.behavior_analyzer.close()
-        self.phone_detector.close()
+        # self.behavior_analyzer.close()  # Disabled
+        # self.phone_detector.close()  # Disabled
 
 
 def main():
