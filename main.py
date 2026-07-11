@@ -199,7 +199,7 @@ class SmartClassroomMonitor:
     
     def process_frame(self, frame):
         """
-        Process a single frame - OPTIMIZED for smooth webcam
+        Process a single frame - ULTRA OPTIMIZED for zero freezing
         
         Args:
             frame: Input video frame
@@ -207,14 +207,14 @@ class SmartClassroomMonitor:
         Returns:
             Processed frame with overlays
         """
-        # PERFORMANCE: Process heavy operations only every 3-5 frames
-        # Display continues every frame for smooth video
+        # ULTRA OPTIMIZATION: Alternate between face detection and recognition
+        # Never do both in the same frame to prevent freezing
         
         output_frame = frame.copy()
         current_time = time.monotonic()  # Use monotonic for reliable timing
         
-        # 1. Face Detection (every 3 frames - lightweight)
-        if self.frame_count % 3 == 0:
+        # 1. Face Detection (every 6 frames on even multiples: 6, 12, 18...)
+        if self.frame_count % 6 == 0:
             # Resize frame for faster processing (smaller = faster)
             small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
             self.face_detector.detect_faces(small_frame)
@@ -222,8 +222,9 @@ class SmartClassroomMonitor:
         # 2. Get face crops (use cached detection results)
         face_crops = self.face_detector.get_face_crops(frame)
         
-        # 3. Face Recognition (every 3 frames - lightweight)
-        if self.frame_count % 3 == 0 and face_crops:
+        # 3. Face Recognition (every 6 frames on odd multiples: 3, 9, 15...)
+        # This ensures detection and recognition NEVER happen on the same frame
+        if self.frame_count % 6 == 3 and face_crops:
             self.recognized_faces = self.face_recognizer.recognize_multiple_faces(
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
