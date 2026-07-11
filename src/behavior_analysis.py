@@ -247,16 +247,24 @@ class BehaviorAnalyzer:
             
             # Talking detection logic - IMPROVED: Detect mouth MOVEMENT (opening/closing pattern)
             # Instead of just checking if mouth is open, check for variability in MAR
-            if len(behavior['mar_history']) >= 10:
-                # Calculate standard deviation of recent MAR values
-                mar_std = np.std(list(behavior['mar_history'])[-10:])
-                mar_mean = np.mean(list(behavior['mar_history'])[-10:])
+            if len(behavior['mar_history']) >= 15:
+                # Calculate standard deviation and range of recent MAR values
+                recent_mars = list(behavior['mar_history'])[-15:]
+                mar_std = np.std(recent_mars)
+                mar_mean = np.mean(recent_mars)
+                mar_max = np.max(recent_mars)
+                mar_min = np.min(recent_mars)
+                mar_range = mar_max - mar_min
                 
-                # Talking = mouth is moving (high variability) AND mouth opens reasonably
-                is_mouth_moving = mar_std > 0.03  # Variability threshold
+                # Talking requires BOTH:
+                # 1. HIGH variability (mouth moving rapidly)
+                # 2. Significant opening range (not just small movements)
+                is_mouth_moving = mar_std > 0.08  # Much higher threshold for variability
+                has_wide_range = mar_range > 0.15  # Mouth must open significantly
                 is_mouth_open_enough = mar_mean > self.mar_threshold
                 
-                if is_mouth_moving and is_mouth_open_enough:
+                # All three conditions must be true for talking
+                if is_mouth_moving and has_wide_range and is_mouth_open_enough:
                     behavior['mar_frame_counter'] += 1
                     
                     if behavior['mar_frame_counter'] >= self.mar_consec_frames:
@@ -270,7 +278,7 @@ class BehaviorAnalyzer:
                         self.log_behavior(student_name, 'talking', 'stopped')
                     behavior['mar_frame_counter'] = 0
             else:
-                # Not enough history yet
+                # Not enough history yet - don't detect talking
                 behavior['mar_frame_counter'] = 0
                 behavior['talk_start_time'] = None
             
