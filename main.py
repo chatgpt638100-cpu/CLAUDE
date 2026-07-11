@@ -95,6 +95,9 @@ class SmartClassroomMonitor:
         # Attendance tracking - prevent duplicate marking attempts
         self.attendance_marked = {}  # {student_name: timestamp}
         
+        # Cache last processed frame for smooth display
+        self.last_output_frame = None
+        
         print("\n✓ System Ready!\n")
     
     def run_monitoring_mode(self, video_source=0):
@@ -171,18 +174,20 @@ class SmartClassroomMonitor:
         Returns:
             Processed frame with overlays
         """
+        # Process only every 5th frame, otherwise return cached frame for smooth display
+        if self.frame_count % 5 != 0 and self.last_output_frame is not None:
+            return self.last_output_frame
+        
         output_frame = frame.copy()
         
-        # 1. Face Detection (every 2 frames to reduce lag)
-        if self.frame_count % 2 == 0:
+        # 1. Face Detection (every 5 frames to reduce lag significantly)
+        if self.frame_count % 5 == 0:
             self.face_detector.detect_faces(frame)
-            face_crops = self.face_detector.get_face_crops(frame)
-        else:
-            # Use previous detection results
-            face_crops = []
         
-        # 2. Face Recognition (every 5 frames to reduce lag)
-        if self.frame_count % 5 == 0 and face_crops:
+        face_crops = self.face_detector.get_face_crops(frame)
+        
+        # 2. Face Recognition (every 10 frames to reduce lag)
+        if self.frame_count % 10 == 0 and face_crops:
             self.recognized_faces = self.face_recognizer.recognize_multiple_faces(
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
@@ -211,8 +216,8 @@ class SmartClassroomMonitor:
                                 'checking': True
                             }
                         
-                        # Run verification for this student (every 3 frames)
-                        if self._proxy_check_students[student_name]['checking'] and self.frame_count % 3 == 0:
+                        # Run verification for this student (every 10 frames to reduce lag)
+                        if self._proxy_check_students[student_name]['checking'] and self.frame_count % 10 == 0:
                             verifier = self._proxy_check_students[student_name]['verifier']
                             proxy_result = verifier.verify_liveness(frame)
                             
@@ -238,14 +243,14 @@ class SmartClassroomMonitor:
         else:
             self.recognized_faces = []
         
-        # 4. Behavior Analysis (every 5 frames to reduce lag)
+        # 4. Behavior Analysis (every 15 frames to reduce lag - very heavy MediaPipe)
         behavior_results = []
-        if self.frame_count % 5 == 0:
+        if self.frame_count % 15 == 0:
             behavior_results = self.behavior_analyzer.analyze_frame(frame, self.recognized_faces)
         
-        # 5. Phone Detection (every 10 frames for better performance)
+        # 5. Phone Detection (every 30 frames - YOLOv8 is extremely heavy)
         phone_incidents = []
-        if self.frame_count % 10 == 0:
+        if self.frame_count % 30 == 0:
             self.phone_detector.detect_phones(frame)
             phone_incidents = self.phone_detector.match_phone_to_student(
                 self.phone_detector.detections,
@@ -262,6 +267,9 @@ class SmartClassroomMonitor:
             behavior_results,
             phone_incidents
         )
+        
+        # Cache this frame for smooth display
+        self.last_output_frame = output_frame
         
         return output_frame
     
