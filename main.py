@@ -141,7 +141,7 @@ class SmartClassroomMonitor:
     
     def process_frame(self, frame):
         """
-        Process a single frame - SIMPLIFIED FOR RELIABILITY
+        Process a single frame - ULTRA LIGHT for no freezing
         
         Args:
             frame: Input video frame
@@ -149,20 +149,20 @@ class SmartClassroomMonitor:
         Returns:
             Processed frame with overlays
         """
-        # Process every 5 frames for better responsiveness
-        if self.frame_count % 5 != 0 and self.last_output_frame is not None:
+        # ULTRA LIGHT: Process only every 20th frame, cache all others
+        if self.frame_count % 20 != 0 and self.last_output_frame is not None:
             return self.last_output_frame
         
         output_frame = frame.copy()
         
-        # 1. Face Detection (every 15 frames)
-        if self.frame_count % 15 == 0:
+        # 1. Face Detection (every 60 frames - very light)
+        if self.frame_count % 60 == 0:
             self.face_detector.detect_faces(frame)
         
         face_crops = self.face_detector.get_face_crops(frame)
         
-        # 2. Face Recognition (every 30 frames)
-        if self.frame_count % 30 == 0 and face_crops:
+        # 2. Face Recognition (every 60 frames - very light)
+        if self.frame_count % 60 == 0 and face_crops:
             self.recognized_faces = self.face_recognizer.recognize_multiple_faces(
                 face_crops, 
                 threshold=self.config.get('recognition_threshold', 0.6)
