@@ -14,24 +14,42 @@ def reset_attendance():
     print("=" * 70)
     print()
     
+    # IMPORTANT: Close any open Excel files first
+    print("⚠️  IMPORTANT: Close any open Excel files before continuing!")
+    print("   (Excel files cannot be deleted if they are open)")
+    print()
+    input("Press Enter when ready to continue...")
+    print()
+    
     # Paths
     json_logs_dir = "data/attendance_logs"
     excel_dir = "data/attendance_excel"
     
     # Track deleted files
     deleted_count = 0
+    failed_files = []
     
     # Delete JSON logs
     print("[1/2] Deleting JSON attendance logs...")
     if os.path.exists(json_logs_dir):
         json_files = glob.glob(os.path.join(json_logs_dir, "*.json"))
-        for file in json_files:
-            try:
-                os.remove(file)
-                print(f"  ✓ Deleted: {file}")
-                deleted_count += 1
-            except Exception as e:
-                print(f"  ✗ Failed to delete {file}: {e}")
+        if json_files:
+            for file in json_files:
+                try:
+                    # Force close any handles
+                    if os.path.exists(file):
+                        os.chmod(file, 0o777)  # Ensure writable
+                        os.remove(file)
+                        print(f"  ✓ Deleted: {file}")
+                        deleted_count += 1
+                except PermissionError:
+                    print(f"  ✗ Permission denied: {file} (file may be open)")
+                    failed_files.append(file)
+                except Exception as e:
+                    print(f"  ✗ Failed to delete {file}: {e}")
+                    failed_files.append(file)
+        else:
+            print("  ⊘ No JSON files found")
     else:
         print(f"  ⊘ Directory not found: {json_logs_dir}")
     
@@ -39,18 +57,44 @@ def reset_attendance():
     print("\n[2/2] Deleting Excel attendance files...")
     if os.path.exists(excel_dir):
         excel_files = glob.glob(os.path.join(excel_dir, "*.xlsx"))
-        for file in excel_files:
-            try:
-                os.remove(file)
-                print(f"  ✓ Deleted: {file}")
-                deleted_count += 1
-            except Exception as e:
-                print(f"  ✗ Failed to delete {file}: {e}")
+        if excel_files:
+            for file in excel_files:
+                try:
+                    # Force close any handles
+                    if os.path.exists(file):
+                        os.chmod(file, 0o777)  # Ensure writable
+                        os.remove(file)
+                        print(f"  ✓ Deleted: {file}")
+                        deleted_count += 1
+                except PermissionError:
+                    print(f"  ✗ Permission denied: {file}")
+                    print(f"     → Close the file in Excel and try again")
+                    failed_files.append(file)
+                except Exception as e:
+                    print(f"  ✗ Failed to delete {file}: {e}")
+                    failed_files.append(file)
+        else:
+            print("  ⊘ No Excel files found")
     else:
         print(f"  ⊘ Directory not found: {excel_dir}")
     
     print()
     print("=" * 70)
+    
+    if failed_files:
+        print(f"⚠️  WARNING: {len(failed_files)} file(s) could not be deleted:")
+        for file in failed_files:
+            print(f"  - {file}")
+        print()
+        print("Common reasons:")
+        print("  1. File is open in Excel → Close it and try again")
+        print("  2. File is locked by another program")
+        print("  3. Permission denied → Run as administrator")
+        print()
+        print("Manual deletion:")
+        print("  1. Close all Excel files")
+        print("  2. Delete manually in File Explorer")
+        print("  3. Run this script again")
     
     if deleted_count > 0:
         print(f"✓ SUCCESS! Deleted {deleted_count} file(s)")
@@ -73,6 +117,12 @@ def reset_today_only():
     print("=" * 70)
     print()
     
+    # IMPORTANT: Close any open Excel files first
+    print("⚠️  IMPORTANT: Close Excel file if it's open!")
+    print()
+    input("Press Enter when ready to continue...")
+    print()
+    
     date_str = datetime.now().strftime("%Y-%m-%d")
     
     # Paths
@@ -80,31 +130,48 @@ def reset_today_only():
     excel_file = f"data/attendance_excel/Attendance_{date_str}.xlsx"
     
     deleted_count = 0
+    failed_files = []
     
     # Delete JSON
     if os.path.exists(json_file):
         try:
+            os.chmod(json_file, 0o777)
             os.remove(json_file)
             print(f"✓ Deleted JSON: {json_file}")
             deleted_count += 1
+        except PermissionError:
+            print(f"✗ Permission denied: {json_file}")
+            failed_files.append(json_file)
         except Exception as e:
             print(f"✗ Failed to delete JSON: {e}")
+            failed_files.append(json_file)
     else:
         print(f"⊘ JSON file not found: {json_file}")
     
     # Delete Excel
     if os.path.exists(excel_file):
         try:
+            os.chmod(excel_file, 0o777)
             os.remove(excel_file)
             print(f"✓ Deleted Excel: {excel_file}")
             deleted_count += 1
+        except PermissionError:
+            print(f"✗ Permission denied: {excel_file}")
+            print(f"   → Close the file in Excel and try again")
+            failed_files.append(excel_file)
         except Exception as e:
             print(f"✗ Failed to delete Excel: {e}")
+            failed_files.append(excel_file)
     else:
         print(f"⊘ Excel file not found: {excel_file}")
     
     print()
     print("=" * 70)
+    
+    if failed_files:
+        print(f"⚠️  WARNING: Could not delete {len(failed_files)} file(s)")
+        print("   → Close Excel and try again")
+        print()
     
     if deleted_count > 0:
         print(f"✓ SUCCESS! Reset today's attendance ({date_str})")
