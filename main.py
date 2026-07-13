@@ -27,7 +27,6 @@ from anti_proxy import AntiProxyVerifier
 from behavior_analysis import BehaviorAnalyzer
 from phone_detection import PhoneDetector
 from alert_system import AlertSystem
-from excel_attendance import mark_attendance_to_excel
 
 
 class SmartClassroomMonitor:
@@ -356,8 +355,6 @@ class SmartClassroomMonitor:
             if success:
                 self.attendance_marked[student_name] = datetime.now()
                 print(f"Attendance has been marked for {student_name}")
-                # Also mark in Excel
-                mark_attendance_to_excel(student_name, face['confidence'])
             
             # Send email to teacher only (not to parent)
             try:
@@ -410,8 +407,6 @@ class SmartClassroomMonitor:
             if success:
                 self.attendance_marked[student_name] = datetime.now()
                 print(f"Attendance has been marked for {student_name}")
-                # Also mark in Excel
-                mark_attendance_to_excel(student_name, face['confidence'])
             
             try:
                 # Send email to teacher only (not to parent)
