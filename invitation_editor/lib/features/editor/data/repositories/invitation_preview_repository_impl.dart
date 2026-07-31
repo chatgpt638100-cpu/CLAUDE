@@ -37,8 +37,9 @@ class InvitationPreviewRepositoryImpl implements InvitationPreviewRepository {
 
   @override
   Future<InvitationPage> renderFirstPage(
-    InvitationSourceFile sourceFile,
-  ) async {
+    InvitationSourceFile sourceFile, {
+    double? dpi,
+  }) async {
     try {
       final file = File(sourceFile.path);
 
@@ -53,7 +54,7 @@ class InvitationPreviewRepositoryImpl implements InvitationPreviewRepository {
 
       switch (sourceFile.type) {
         case InvitationFileType.pdf:
-          return _rasterisePdfFirstPage(bytes);
+          return _rasterisePdfFirstPage(bytes, dpi ?? _previewDpi);
         case InvitationFileType.image:
           // A JPG/PNG is already displayable — it only needs measuring.
           return _measureImage(bytes);
@@ -69,11 +70,14 @@ class InvitationPreviewRepositoryImpl implements InvitationPreviewRepository {
 
   /// Rasterises the first page of a PDF into PNG bytes, keeping the pixel
   /// dimensions the rasteriser reports.
-  Future<InvitationPage> _rasterisePdfFirstPage(Uint8List documentBytes) async {
+  Future<InvitationPage> _rasterisePdfFirstPage(
+    Uint8List documentBytes,
+    double dpi,
+  ) async {
     await for (final page in Printing.raster(
       documentBytes,
       pages: _firstPageOnly,
-      dpi: _previewDpi,
+      dpi: dpi,
     )) {
       return InvitationPage(
         imageBytes: await page.toPng(),

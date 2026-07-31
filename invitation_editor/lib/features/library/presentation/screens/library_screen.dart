@@ -5,13 +5,13 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/widgets/item_options_sheet.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/pulsing_dot_loader.dart';
 import '../../../../core/widgets/secondary_button.dart';
 import '../../domain/entities/invitation_project.dart';
 import '../providers/library_provider.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/invitation_options_sheet.dart';
 import '../widgets/invitation_thumbnail_card.dart';
 import '../widgets/library_search_field.dart';
 
@@ -40,25 +40,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   }
 
   Future<void> _handleOptions(InvitationProject project) async {
-    final choice = await showInvitationOptionsSheet(context, project: project);
+    final choice = await showItemOptionsSheet(
+      context,
+      title: project.title,
+      deleteDescription: 'Remove this invitation for good',
+    );
     if (choice == null || !mounted) return;
 
     final notifier = ref.read(libraryProvider.notifier);
 
     try {
       switch (choice) {
-        case InvitationOption.rename:
-          final title = await showRenameInvitationDialog(
+        case ItemOption.rename:
+          final title = await showRenameDialog(
             context,
-            currentTitle: project.title,
+            dialogTitle: 'Rename invitation',
+            currentValue: project.title,
           );
           if (title != null) await notifier.rename(project.id, title);
 
-        case InvitationOption.duplicate:
+        case ItemOption.duplicate:
           await notifier.duplicate(project.id);
 
-        case InvitationOption.delete:
-          final confirmed = await confirmDeleteInvitation(
+        case ItemOption.delete:
+          final confirmed = await confirmDeletionDialog(
             context,
             title: project.title,
           );

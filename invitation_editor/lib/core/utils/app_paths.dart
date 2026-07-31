@@ -17,6 +17,7 @@ class AppPaths {
   Directory? _documents;
 
   static const String _sourcesFolder = 'sources';
+  static const String _templatesFolder = 'templates';
   static const String _thumbnailsFolder = 'thumbnails';
   static const String _exportsFolder = 'exports';
 
@@ -39,15 +40,15 @@ class AppPaths {
   /// upload is copied here and read from here from then on.
   Future<Directory> sourcesDirectory() => _subDirectory(_sourcesFolder);
 
+  /// Artwork belonging to saved templates.
+  ///
+  /// Separate from `sources/` so deleting an invitation can never remove
+  /// the artwork a template still depends on.
+  Future<Directory> templatesDirectory() => _subDirectory(_templatesFolder);
+
   Future<Directory> thumbnailsDirectory() => _subDirectory(_thumbnailsFolder);
 
   Future<Directory> exportsDirectory() => _subDirectory(_exportsFolder);
-
-  Future<String> sourceFilePath(String fileName) async =>
-      '${(await sourcesDirectory()).path}${Platform.pathSeparator}$fileName';
-
-  Future<String> thumbnailPath(String fileName) async =>
-      '${(await thumbnailsDirectory()).path}${Platform.pathSeparator}$fileName';
 
   /// Total bytes held by the folders this class owns, for the Settings
   /// screen's storage figure.
@@ -55,6 +56,7 @@ class AppPaths {
     var total = 0;
     for (final directory in [
       await sourcesDirectory(),
+      await templatesDirectory(),
       await thumbnailsDirectory(),
       await exportsDirectory(),
     ]) {
@@ -68,8 +70,8 @@ class AppPaths {
   }
 
   /// Removes generated files that can be rebuilt on demand — thumbnails
-  /// and past exports. Never touches `sources/`, which holds the only
-  /// copy of the user's uploaded artwork.
+  /// and past exports. Never touches `sources/` or `templates/`, which
+  /// hold the only copy of the user's uploaded artwork.
   Future<void> clearRegeneratableFiles() async {
     for (final directory in [
       await thumbnailsDirectory(),

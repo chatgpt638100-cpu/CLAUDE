@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_dimensions.dart';
-import '../../../../core/widgets/app_dialog.dart';
-import '../../domain/entities/invitation_project.dart';
+import '../constants/app_colors.dart';
+import '../constants/app_dimensions.dart';
+import 'app_dialog.dart';
 
-/// What the user picked from a thumbnail's Options menu.
+/// Shared "•••" menu, rename dialog and delete confirmation, used by both
+/// the Library and the Template Library.
 ///
-/// Export and Print are listed in the spec's menu but are not offered yet
-/// — they arrive with the export feature. Nothing is shown for them
-/// rather than showing a disabled row that invites a pointless tap.
-enum InvitationOption { rename, duplicate, delete }
+/// Generic on purpose: a saved invitation and a saved template need the
+/// identical three actions with identical wording and identical touch
+/// targets. Two copies would be two places to fix a label.
 
-/// The "•••" menu on a Library thumbnail (Screen 1).
-///
+/// What the user picked from an item's Options menu.
+enum ItemOption { rename, duplicate, delete }
+
 /// A bottom sheet of large labeled rows rather than a compact popup: this
 /// audience needs targets it can hit and labels it can read, and a popup
 /// anchored to a small icon gives neither.
-Future<InvitationOption?> showInvitationOptionsSheet(
+Future<ItemOption?> showItemOptionsSheet(
   BuildContext context, {
-  required InvitationProject project,
+  required String title,
+  String duplicateDescription = 'Make a copy you can change freely',
+  String deleteDescription = 'Remove this for good',
+  bool includeDuplicate = true,
 }) {
-  return showModalBottomSheet<InvitationOption>(
+  return showModalBottomSheet<ItemOption>(
     context: context,
     backgroundColor: AppColors.cardSurface,
     shape: const RoundedRectangleBorder(
@@ -36,7 +39,7 @@ Future<InvitationOption?> showInvitationOptionsSheet(
           Padding(
             padding: const EdgeInsets.all(AppDimensions.spaceM),
             child: Text(
-              project.title,
+              title,
               style: Theme.of(sheetContext).textTheme.headlineMedium,
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -47,24 +50,23 @@ Future<InvitationOption?> showInvitationOptionsSheet(
           _OptionRow(
             icon: Icons.drive_file_rename_outline,
             label: 'Rename',
-            description: 'Give this invitation a different name',
-            onTap: () =>
-                Navigator.of(sheetContext).pop(InvitationOption.rename),
+            description: 'Give this a different name',
+            onTap: () => Navigator.of(sheetContext).pop(ItemOption.rename),
           ),
-          _OptionRow(
-            icon: Icons.copy_outlined,
-            label: 'Duplicate',
-            description: 'Make a copy you can change freely',
-            onTap: () =>
-                Navigator.of(sheetContext).pop(InvitationOption.duplicate),
-          ),
+          if (includeDuplicate)
+            _OptionRow(
+              icon: Icons.copy_outlined,
+              label: 'Duplicate',
+              description: duplicateDescription,
+              onTap: () =>
+                  Navigator.of(sheetContext).pop(ItemOption.duplicate),
+            ),
           _OptionRow(
             icon: Icons.delete_outline,
             label: 'Delete',
-            description: 'Remove this invitation for good',
+            description: deleteDescription,
             isDestructive: true,
-            onTap: () =>
-                Navigator.of(sheetContext).pop(InvitationOption.delete),
+            onTap: () => Navigator.of(sheetContext).pop(ItemOption.delete),
           ),
           const SizedBox(height: AppDimensions.spaceS),
         ],
@@ -73,11 +75,13 @@ Future<InvitationOption?> showInvitationOptionsSheet(
   );
 }
 
-/// Deleting an invitation cannot be undone, so unlike deleting a text box
-/// it gets a confirmation dialog — exactly the split the spec asks for.
-Future<bool> confirmDeleteInvitation(
+/// Deleting a whole invitation or template cannot be undone, so unlike
+/// deleting a text box it gets a confirmation dialog — exactly the split
+/// the spec asks for.
+Future<bool> confirmDeletionDialog(
   BuildContext context, {
   required String title,
+  String description = 'This cannot be undone.',
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
@@ -89,7 +93,7 @@ Future<bool> confirmDeleteInvitation(
       onConfirm: () => Navigator.of(dialogContext).pop(true),
       onCancel: () => Navigator.of(dialogContext).pop(false),
       content: Text(
-        'This cannot be undone.',
+        description,
         textAlign: TextAlign.center,
         style: Theme.of(dialogContext).textTheme.bodyMedium,
       ),
@@ -98,12 +102,14 @@ Future<bool> confirmDeleteInvitation(
   return confirmed ?? false;
 }
 
-/// Asks for a new name, pre-filled with the current one.
-Future<String?> showRenameInvitationDialog(
+/// Asks for a new name, pre-filled with the current one. Returns null if
+/// cancelled or left blank.
+Future<String?> showRenameDialog(
   BuildContext context, {
-  required String currentTitle,
+  required String dialogTitle,
+  required String currentValue,
 }) {
-  final controller = TextEditingController(text: currentTitle);
+  final controller = TextEditingController(text: currentValue);
 
   return showDialog<String>(
     context: context,
@@ -114,7 +120,7 @@ Future<String?> showRenameInvitationDialog(
       }
 
       return AppDialog(
-        title: 'Rename invitation',
+        title: dialogTitle,
         confirmLabel: 'Save',
         onConfirm: submit,
         content: TextField(
@@ -157,10 +163,7 @@ class _OptionRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppDimensions.spaceM,
-          vertical: AppDimensions.spaceM,
-        ),
+        padding: const EdgeInsets.all(AppDimensions.spaceM),
         child: Row(
           children: [
             Icon(icon, color: colour),

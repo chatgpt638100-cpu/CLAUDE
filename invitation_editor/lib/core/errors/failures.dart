@@ -28,6 +28,11 @@ class PreviewRenderFailure extends Failure {
   ]);
 }
 
-class UnknownFailure extends Failure {
-  const UnknownFailure([super.message = 'Something went wrong.']);
+/// Something went wrong while making the PDF, printing, or sharing.
+class ExportFailure extends Failure {
+  const ExportFailure([
+    super.message = "We couldn't create the PDF. Please try again.",
+  ]);
 }
+
+

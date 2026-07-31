@@ -4,7 +4,6 @@ import '../features/source_selection/presentation/screens/source_selection_scree
 import '../features/templates/presentation/screens/template_library_screen.dart';
 import '../features/editor/presentation/screens/editor_screen.dart';
 import '../features/editor/domain/entities/invitation_source_file.dart';
-import '../features/export/presentation/screens/export_screen.dart';
 import '../features/settings/presentation/screens/settings_screen.dart';
 
 /// Central place listing every screen and how to navigate between them.
@@ -48,11 +47,9 @@ class AppRouter {
           );
         },
       ),
-      GoRoute(
-        path: '/export',
-        name: 'export',
-        builder: (context, state) => const ExportScreen(),
-      ),
+      // No /export route: per the spec, export opens as a bottom sheet over
+      // the Editor rather than as a screen of its own. See
+      // features/export/presentation/widgets/export_sheet.dart.
       GoRoute(
         path: '/settings',
         name: 'settings',

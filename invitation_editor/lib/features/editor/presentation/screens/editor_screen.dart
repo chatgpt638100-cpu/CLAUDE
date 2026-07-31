@@ -6,12 +6,19 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
+import '../../../../core/errors/failures.dart';
+import '../../../../core/utils/id_generator.dart';
 import '../../../../core/widgets/pulsing_dot_loader.dart';
+import '../../../../injection/service_locator.dart';
+import '../../../export/presentation/widgets/export_sheet.dart';
+import '../../../templates/domain/usecases/save_template.dart';
+import '../../../templates/presentation/widgets/save_as_template_dialog.dart';
 import '../../domain/entities/invitation_source_file.dart';
 import '../providers/editor_canvas_provider.dart';
 import '../providers/editor_session_provider.dart';
 import '../thumbnail_capture.dart';
 import '../widgets/canvas_view.dart';
+import '../widgets/editor_menu_sheet.dart';
 import '../widgets/text_input_dialog.dart';
 
 /// Screen 4 — The Editor.
@@ -87,6 +94,69 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
   Future<Uint8List?> _captureThumbnail() =>
       const ThumbnailCapture().capture(_canvasBoundaryKey);
 
+  Future<void> _handleMenu() async {
+    final action = await showEditorMenuSheet(context);
+    if (action == null || !mounted) return;
+
+    switch (action) {
+      case EditorMenuAction.saveAsTemplate:
+        await _handleSaveAsTemplate();
+      case EditorMenuAction.printOrExport:
+        await _handleExport();
+    }
+  }
+
+  Future<void> _handleSaveAsTemplate() async {
+    final project = ref.read(editorSessionProvider).project;
+    if (project == null) return;
+
+    final request = await showSaveAsTemplateDialog(
+      context,
+      suggestedName: project.title,
+    );
+    if (request == null || !mounted) return;
+
+    try {
+      await sl<SaveTemplate>()(
+        id: sl<IdGenerator>().next('template'),
+        project: project.copyWith(
+          // Taken from the canvas rather than the last save, so a template
+          // captures exactly what is on screen now.
+          textElements: ref.read(editorCanvasProvider).elements,
+        ),
+        name: request.name,
+        category: request.category,
+        thumbnailBytes: await _captureThumbnail(),
+      );
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Saved as a template.')),
+        );
+    } on Failure catch (failure) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(failure.message)));
+    }
+  }
+
+  Future<void> _handleExport() async {
+    // Flushed first so the PDF is rendered from the saved document rather
+    // than from a project whose latest edits are still pending.
+    await ref.read(editorSessionProvider.notifier).save(
+          captureThumbnail: _captureThumbnail,
+        );
+    if (!mounted) return;
+
+    final project = ref.read(editorSessionProvider).project;
+    if (project == null) return;
+
+    await showExportSheet(context, project: project);
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(editorSessionProvider);
@@ -142,14 +212,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
             ),
           ),
           actions: [
+            TextButton.icon(
+              onPressed:
+                  project == null || session.isSaving ? null : _handleSave,
+              icon: const Icon(Icons.check),
+              label: const Text('Save'),
+            ),
             Padding(
               padding: const EdgeInsets.only(right: AppDimensions.spaceS),
               child: TextButton.icon(
-                onPressed: project == null || session.isSaving
-                    ? null
-                    : _handleSave,
-                icon: const Icon(Icons.check),
-                label: const Text('Save'),
+                onPressed: project == null ? null : _handleMenu,
+                icon: const Icon(Icons.more_horiz),
+                label: const Text('Menu'),
               ),
             ),
           ],

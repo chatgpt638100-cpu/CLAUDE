@@ -15,5 +15,12 @@ abstract class InvitationPreviewRepository {
   ///
   /// For a PDF this rasterises page 1; for a JPG/PNG the image itself
   /// is the only page. Later phases may add multi-page support.
-  Future<InvitationPage> renderFirstPage(InvitationSourceFile sourceFile);
+  ///
+  /// [dpi] overrides the resolution. The canvas uses the default, which is
+  /// tuned for a phone screen; export asks for more so printed output is
+  /// not limited by what the screen needed.
+  Future<InvitationPage> renderFirstPage(
+    InvitationSourceFile sourceFile, {
+    double? dpi,
+  });
 }

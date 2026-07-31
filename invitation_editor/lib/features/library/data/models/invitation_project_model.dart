@@ -32,9 +32,9 @@ class InvitationProjectModel {
       'pageHeightPx': project.pageHeightPx,
       // File name only, never an absolute path — see AppPaths.
       'thumbnailFileName': project.thumbnailFileName,
-      'source': _sourceToJson(project.sourceFile),
+      'source': sourceToJson(project.sourceFile),
       'textElements': [
-        for (final element in project.textElements) _elementToJson(element),
+        for (final element in project.textElements) elementToJson(element),
       ],
     };
   }
@@ -46,31 +46,31 @@ class InvitationProjectModel {
     required String? Function(String fileName) resolveSourcePath,
     required String? Function(String fileName) resolveThumbnailPath,
   }) {
-    final thumbnailFileName = _stringOrNull(json['thumbnailFileName']);
+    final thumbnailFileName = stringOrNull(json['thumbnailFileName']);
 
     return InvitationProject(
-      id: _string(json['id'], ''),
-      title: _string(json['title'], InvitationProject.untitled),
-      createdAt: _dateTime(json['createdAt']),
-      updatedAt: _dateTime(json['updatedAt']),
-      pageWidthPx: _int(json['pageWidthPx'], InvitationProject.blankPageWidthPx),
+      id: string(json['id'], ''),
+      title: string(json['title'], InvitationProject.untitled),
+      createdAt: dateTime(json['createdAt']),
+      updatedAt: dateTime(json['updatedAt']),
+      pageWidthPx: integer(json['pageWidthPx'], InvitationProject.blankPageWidthPx),
       pageHeightPx:
-          _int(json['pageHeightPx'], InvitationProject.blankPageHeightPx),
+          integer(json['pageHeightPx'], InvitationProject.blankPageHeightPx),
       thumbnailFileName: thumbnailFileName,
       thumbnailPath: thumbnailFileName == null
           ? null
           : resolveThumbnailPath(thumbnailFileName),
-      sourceFile: _sourceFromJson(json['source'], resolveSourcePath),
+      sourceFile: sourceFromJson(json['source'], resolveSourcePath),
       textElements: [
-        for (final raw in _list(json['textElements']))
-          if (raw is Map) _elementFromJson(raw.cast<String, dynamic>()),
+        for (final raw in list(json['textElements']))
+          if (raw is Map) elementFromJson(raw.cast<String, dynamic>()),
       ],
     );
   }
 
   // ---------------------------------------------------------------- source
 
-  static Map<String, dynamic>? _sourceToJson(InvitationSourceFile? source) {
+  static Map<String, dynamic>? sourceToJson(InvitationSourceFile? source) {
     if (source == null) return null;
     return <String, dynamic>{
       // The path is intentionally not stored; the file name is enough to
@@ -80,14 +80,14 @@ class InvitationProjectModel {
     };
   }
 
-  static InvitationSourceFile? _sourceFromJson(
+  static InvitationSourceFile? sourceFromJson(
     Object? raw,
     String? Function(String fileName) resolvePath,
   ) {
     if (raw is! Map) return null;
 
     final json = raw.cast<String, dynamic>();
-    final fileName = _stringOrNull(json['fileName']);
+    final fileName = stringOrNull(json['fileName']);
     if (fileName == null) return null;
 
     final path = resolvePath(fileName);
@@ -98,7 +98,7 @@ class InvitationProjectModel {
     return InvitationSourceFile(
       path: path,
       fileName: fileName,
-      type: _enum(
+      type: enumValue(
         json['type'],
         InvitationFileType.values,
         InvitationFileType.image,
@@ -108,7 +108,7 @@ class InvitationProjectModel {
 
   // --------------------------------------------------------------- element
 
-  static Map<String, dynamic> _elementToJson(TextElement element) {
+  static Map<String, dynamic> elementToJson(TextElement element) {
     return <String, dynamic>{
       'id': element.id,
       'content': element.content,
@@ -131,31 +131,31 @@ class InvitationProjectModel {
     };
   }
 
-  static TextElement _elementFromJson(Map<String, dynamic> json) {
+  static TextElement elementFromJson(Map<String, dynamic> json) {
     return TextElement(
-      id: _string(json['id'], ''),
-      content: _string(json['content'], ''),
-      x: _double(json['x'], 0),
-      y: _double(json['y'], 0),
-      width: _double(json['width'], TextElement.defaultWidth),
-      height: _double(json['height'], TextElement.defaultHeight),
-      rotation: _double(json['rotation'], 0),
-      fontSize: _double(json['fontSize'], TextElement.defaultFontSize),
-      fontFamily: _string(json['fontFamily'], 'Playfair Display'),
-      colorValue: _int(json['colorValue'], TextElement.defaultColorValue),
-      isBold: _bool(json['isBold']),
-      isItalic: _bool(json['isItalic']),
-      isUnderlined: _bool(json['isUnderlined']),
-      alignment: _enum(
+      id: string(json['id'], ''),
+      content: string(json['content'], ''),
+      x: decimal(json['x'], 0),
+      y: decimal(json['y'], 0),
+      width: decimal(json['width'], TextElement.defaultWidth),
+      height: decimal(json['height'], TextElement.defaultHeight),
+      rotation: decimal(json['rotation'], 0),
+      fontSize: decimal(json['fontSize'], TextElement.defaultFontSize),
+      fontFamily: string(json['fontFamily'], 'Playfair Display'),
+      colorValue: integer(json['colorValue'], TextElement.defaultColorValue),
+      isBold: boolean(json['isBold']),
+      isItalic: boolean(json['isItalic']),
+      isUnderlined: boolean(json['isUnderlined']),
+      alignment: enumValue(
         json['alignment'],
         TextAlignmentOption.values,
         TextAlignmentOption.centre,
       ),
       letterSpacing:
-          _double(json['letterSpacing'], TextElement.defaultLetterSpacing),
-      lineHeight: _double(json['lineHeight'], TextElement.defaultLineHeight),
-      opacity: _double(json['opacity'], TextElement.defaultOpacity),
-      shadow: _enum(
+          decimal(json['letterSpacing'], TextElement.defaultLetterSpacing),
+      lineHeight: decimal(json['lineHeight'], TextElement.defaultLineHeight),
+      opacity: decimal(json['opacity'], TextElement.defaultOpacity),
+      shadow: enumValue(
         json['shadow'],
         TextShadowStyle.values,
         TextShadowStyle.none,
@@ -166,25 +166,29 @@ class InvitationProjectModel {
   // --------------------------------------------------------------- helpers
   // Every reader is total: it returns a usable value for any input,
   // including null and the wrong type.
+  //
+  // Public because the template model reuses them: a template holds the
+  // same text boxes as an invitation, so encoding them twice would be two
+  // places to update and one chance to let them drift apart.
 
-  static String _string(Object? value, String fallback) =>
+  static String string(Object? value, String fallback) =>
       value is String && value.isNotEmpty ? value : fallback;
 
-  static String? _stringOrNull(Object? value) =>
+  static String? stringOrNull(Object? value) =>
       value is String && value.isNotEmpty ? value : null;
 
-  static double _double(Object? value, double fallback) =>
+  static double decimal(Object? value, double fallback) =>
       value is num ? value.toDouble() : fallback;
 
-  static int _int(Object? value, int fallback) =>
+  static int integer(Object? value, int fallback) =>
       value is num ? value.toInt() : fallback;
 
-  static bool _bool(Object? value) => value is bool && value;
+  static bool boolean(Object? value) => value is bool && value;
 
-  static List<Object?> _list(Object? value) =>
+  static List<Object?> list(Object? value) =>
       value is List ? value : const <Object?>[];
 
-  static DateTime _dateTime(Object? value) {
+  static DateTime dateTime(Object? value) {
     if (value is String) {
       final parsed = DateTime.tryParse(value);
       if (parsed != null) return parsed;
@@ -194,7 +198,7 @@ class InvitationProjectModel {
     return DateTime.now();
   }
 
-  static T _enum<T extends Enum>(Object? value, List<T> values, T fallback) {
+  static T enumValue<T extends Enum>(Object? value, List<T> values, T fallback) {
     if (value is String) {
       for (final candidate in values) {
         if (candidate.name == value) return candidate;

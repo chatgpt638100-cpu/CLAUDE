@@ -13,6 +13,20 @@ import '../features/library/domain/usecases/get_recent_invitations.dart';
 import '../features/library/domain/usecases/rename_invitation.dart';
 import '../features/library/domain/usecases/save_invitation.dart';
 import '../features/library/domain/usecases/search_invitations.dart';
+import '../features/export/data/renderers/invitation_page_renderer.dart';
+import '../features/export/data/repositories/export_repository_impl.dart';
+import '../features/export/domain/repositories/export_repository.dart';
+import '../features/export/domain/usecases/export_to_pdf.dart';
+import '../features/export/domain/usecases/print_invitation.dart';
+import '../features/export/domain/usecases/share_invitation.dart';
+import '../features/templates/data/datasources/template_local_data_source.dart';
+import '../features/templates/data/repositories/template_repository_impl.dart';
+import '../features/templates/domain/repositories/template_repository.dart';
+import '../features/templates/domain/usecases/create_invitation_from_template.dart';
+import '../features/templates/domain/usecases/delete_template.dart';
+import '../features/templates/domain/usecases/get_templates.dart';
+import '../features/templates/domain/usecases/rename_template.dart';
+import '../features/templates/domain/usecases/save_template.dart';
 import '../features/editor/data/repositories/invitation_preview_repository_impl.dart';
 import '../features/editor/domain/repositories/invitation_preview_repository.dart';
 import '../features/editor/domain/usecases/add_text_element.dart';
@@ -57,6 +71,39 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton(() => RenameInvitation(sl()));
   sl.registerLazySingleton(() => const SearchInvitations());
   sl.registerLazySingleton(() => const GetRecentInvitations());
+
+  // Templates — saved designs
+  sl.registerLazySingleton<TemplateLocalDataSource>(
+    () => TemplateLocalDataSourceImpl(sl()),
+  );
+  sl.registerLazySingleton<TemplateRepository>(
+    () => TemplateRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton(() => GetTemplates(sl()));
+  sl.registerLazySingleton(() => SaveTemplate(sl()));
+  sl.registerLazySingleton(() => DeleteTemplate(sl()));
+  sl.registerLazySingleton(() => RenameTemplate(sl()));
+  // Spans two features, so both repositories are named explicitly rather
+  // than relying on positional inference.
+  sl.registerLazySingleton(
+    () => CreateInvitationFromTemplate(
+      templateRepository: sl(),
+      invitationRepository: sl(),
+    ),
+  );
+
+  // Export — PDF, print, share
+  sl.registerLazySingleton(() => const InvitationPageRenderer());
+  sl.registerLazySingleton<ExportRepository>(
+    () => ExportRepositoryImpl(
+      previewRepository: sl(),
+      renderer: sl(),
+      appPaths: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => ExportToPdf(sl()));
+  sl.registerLazySingleton(() => PrintInvitation(sl()));
+  sl.registerLazySingleton(() => ShareInvitation(sl()));
 
   // Source Selection — file picking
   sl.registerLazySingleton<FilePickerRepository>(
