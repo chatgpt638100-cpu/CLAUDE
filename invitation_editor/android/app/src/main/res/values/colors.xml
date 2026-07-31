@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors AppColors in lib/core/constants/app_colors.dart. Only
+         the values the native launch screen needs live here. -->
+    <color name="ivory_background">#FBF7F0</color>
+    <color name="champagne_gold">#C6A15B</color>
+</resources>

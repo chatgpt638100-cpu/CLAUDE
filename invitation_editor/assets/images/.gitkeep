@@ -1,0 +1,4 @@
+Placeholder so this declared asset directory exists in a fresh clone.
+Flutter fails the build when a directory listed under `assets:` in
+pubspec.yaml is missing, and git does not track empty directories.
+Onboarding illustrations and empty-state artwork belong here.

@@ -10,7 +10,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Anchored to the repo root on purpose. Unanchored, "lib/" matches at
+# any depth and would silently exclude the whole Flutter source tree in
+# invitation_editor/lib/.
+/lib/
 lib64/
 parts/
 sdist/

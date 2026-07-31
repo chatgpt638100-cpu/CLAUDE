@@ -1,0 +1,89 @@
+name: invitation_editor
+description: "Offline invitation card editor for Android (Warm Ivory & Gold)."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Dependency injection
+  get_it: ^7.7.0
+
+  # Local offline database
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # File system paths
+  path_provider: ^2.1.3
+
+  # File selection (upload)
+  file_picker: ^8.0.3
+
+  # PDF generation
+  pdf: ^3.11.0
+
+  # Printing & PDF preview.
+  # Also rasterises uploaded PDF pages for the Editor canvas — this
+  # settles the "pdf_render or syncfusion_flutter_pdfviewer, one to be
+  # decided in the editor step" choice in project-architecture.pdf,
+  # Section 3: neither is needed, because `printing` already renders
+  # PDF pages for preview offline. A separate viewer package was
+  # dropped so the canvas stays a plain bitmap we control (text boxes
+  # will be layered on top of it), with no second PDF engine to ship.
+  printing: ^5.13.1
+
+  # Image processing
+  image: ^4.2.0
+
+  # Voice typing
+  speech_to_text: ^7.0.0
+
+  # Fonts (bundled offline as assets, no runtime fetching)
+  google_fonts: ^6.2.1
+
+  # Color selection ("More Colors")
+  flutter_colorpicker: ^1.1.0
+
+  # Sharing exported files
+  share_plus: ^9.0.0
+
+  # Value comparison for domain entities
+  equatable: ^2.0.5
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    # Placeholder font declarations — actual .ttf files to be added
+    # in a later phase (see assets/fonts/).
+    # - family: PlayfairDisplay
+    #   fonts:
+    #     - asset: assets/fonts/PlayfairDisplay-Regular.ttf
+    # - family: Inter
+    #   fonts:
+    #     - asset: assets/fonts/Inter-Regular.ttf
+
+  assets:
+    - assets/images/
+    - assets/templates/
+    # Bundled Google Fonts. The app has no INTERNET permission, so
+    # google_fonts runs with runtime fetching disabled and loads font
+    # files from here instead. See google_fonts/README.md.
+    - google_fonts/
