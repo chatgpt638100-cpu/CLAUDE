@@ -74,4 +74,15 @@ class AppDimensions {
   // as the text restyles.
   static const double formattingPreviewHeight = 72;
   static const double formattingPreviewFontSize = 30;
+
+  // Library.
+  // Thumbnails are decoded at roughly their displayed width rather than
+  // full page resolution — a grid of full-size bitmaps is the quickest
+  // way to run an older phone out of memory.
+  static const int thumbnailCacheWidth = 400;
+  static const double recentStripHeight = 190;
+  static const double recentStripItemWidth = 120;
+
+  // How long editing pauses before the Editor writes to disk.
+  static const Duration autoSaveDebounce = Duration(milliseconds: 1200);
 }

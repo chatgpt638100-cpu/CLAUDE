@@ -14,6 +14,7 @@ import '../../domain/entities/invitation_page.dart';
 import '../../domain/entities/invitation_source_file.dart';
 import '../../domain/entities/text_element.dart';
 import '../providers/editor_canvas_provider.dart';
+import '../providers/editor_session_provider.dart';
 import '../providers/invitation_preview_provider.dart';
 import 'formatting_panel.dart';
 import 'text_box_widget.dart';
@@ -221,6 +222,18 @@ class _CanvasViewState extends ConsumerState<CanvasView>
   Widget _buildCanvas(InvitationPage page) {
     final canvas = ref.watch(editorCanvasProvider);
     final selected = canvas.selectedElement;
+
+    // Hand the page's true pixel size to the session so exports and
+    // thumbnails can reproduce its proportions. Deferred a frame because
+    // this runs during build. The setter ignores unchanged values, so this
+    // settles after the first paint rather than looping.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(editorSessionProvider.notifier).setPageSize(
+            widthPx: page.widthPx,
+            heightPx: page.heightPx,
+          );
+    });
 
     return Column(
       children: [

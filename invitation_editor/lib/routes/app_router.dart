@@ -34,12 +34,19 @@ class AppRouter {
       GoRoute(
         path: '/editor',
         name: 'editor',
-        // The selected source file (if any) is passed via `extra` from
-        // the Source Selection screen. The Editor screen only stores
-        // it for now — it does not display or process it yet.
-        builder: (context, state) => EditorScreen(
-          sourceFile: state.extra as InvitationSourceFile?,
-        ),
+        // Two ways in, distinguished by what `extra` carries:
+        //   String                -> reopen a saved invitation by id
+        //                            (Library thumbnail tap)
+        //   InvitationSourceFile  -> start a new one from a picked file
+        //                            (Source Selection)
+        //   null                  -> blank card
+        builder: (context, state) {
+          final extra = state.extra;
+          return EditorScreen(
+            projectId: extra is String ? extra : null,
+            sourceFile: extra is InvitationSourceFile ? extra : null,
+          );
+        },
       ),
       GoRoute(
         path: '/export',

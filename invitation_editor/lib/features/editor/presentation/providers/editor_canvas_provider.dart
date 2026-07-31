@@ -33,6 +33,15 @@ class EditorCanvasNotifier extends AutoDisposeNotifier<EditorCanvas> {
   @override
   EditorCanvas build() => const EditorCanvas.empty();
 
+  /// Replaces the canvas with the text boxes of a saved invitation.
+  ///
+  /// Selection is deliberately left empty: reopening an invitation should
+  /// present it as it will be printed, not with a box already outlined and
+  /// handles showing.
+  void loadElements(List<TextElement> elements) {
+    state = EditorCanvas(elements: elements);
+  }
+
   void addTextAt({
     required String content,
     required double centreX,

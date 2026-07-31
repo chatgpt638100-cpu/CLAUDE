@@ -16,6 +16,9 @@ import '../../../../core/widgets/app_dialog.dart';
 Future<String?> showTextInputDialog(
   BuildContext context, {
   String? initialValue,
+  String? title,
+  String? hintText,
+  String? confirmLabel,
 }) {
   final isEditing = initialValue != null && initialValue.isNotEmpty;
   final controller = TextEditingController(text: initialValue ?? '');
@@ -29,8 +32,8 @@ Future<String?> showTextInputDialog(
       }
 
       return AppDialog(
-        title: isEditing ? 'Edit your text' : 'Add your text',
-        confirmLabel: isEditing ? 'Save' : 'Add',
+        title: title ?? (isEditing ? 'Edit your text' : 'Add your text'),
+        confirmLabel: confirmLabel ?? (isEditing ? 'Save' : 'Add'),
         onConfirm: submit,
         content: TextField(
           controller: controller,
@@ -41,10 +44,10 @@ Future<String?> showTextInputDialog(
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => submit(),
           style: Theme.of(dialogContext).textTheme.bodyLarge,
-          decoration: const InputDecoration(
-            hintText: 'For example: Dear Margaret',
-            border: OutlineInputBorder(),
-            contentPadding: EdgeInsets.all(AppDimensions.spaceM),
+          decoration: InputDecoration(
+            hintText: hintText ?? 'For example: Dear Margaret',
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.all(AppDimensions.spaceM),
           ),
         ),
       );

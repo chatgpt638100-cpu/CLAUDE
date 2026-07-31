@@ -1,6 +1,18 @@
 import 'package:get_it/get_it.dart';
 
+import '../core/utils/app_paths.dart';
 import '../core/utils/id_generator.dart';
+import '../features/library/data/datasources/invitation_local_data_source.dart';
+import '../features/library/data/repositories/invitation_repository_impl.dart';
+import '../features/library/domain/repositories/invitation_repository.dart';
+import '../features/library/domain/usecases/delete_invitation.dart';
+import '../features/library/domain/usecases/duplicate_invitation.dart';
+import '../features/library/domain/usecases/get_all_invitations.dart';
+import '../features/library/domain/usecases/get_invitation.dart';
+import '../features/library/domain/usecases/get_recent_invitations.dart';
+import '../features/library/domain/usecases/rename_invitation.dart';
+import '../features/library/domain/usecases/save_invitation.dart';
+import '../features/library/domain/usecases/search_invitations.dart';
 import '../features/editor/data/repositories/invitation_preview_repository_impl.dart';
 import '../features/editor/domain/repositories/invitation_preview_repository.dart';
 import '../features/editor/domain/usecases/add_text_element.dart';
@@ -28,6 +40,23 @@ final GetIt sl = GetIt.instance;
 Future<void> setupServiceLocator() async {
   // Core
   sl.registerLazySingleton(() => IdGenerator());
+  sl.registerLazySingleton(() => AppPaths());
+
+  // Library — saved invitations
+  sl.registerLazySingleton<InvitationLocalDataSource>(
+    () => InvitationLocalDataSourceImpl(sl()),
+  );
+  sl.registerLazySingleton<InvitationRepository>(
+    () => InvitationRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton(() => GetAllInvitations(sl()));
+  sl.registerLazySingleton(() => GetInvitation(sl()));
+  sl.registerLazySingleton(() => SaveInvitation(sl()));
+  sl.registerLazySingleton(() => DeleteInvitation(sl()));
+  sl.registerLazySingleton(() => DuplicateInvitation(sl()));
+  sl.registerLazySingleton(() => RenameInvitation(sl()));
+  sl.registerLazySingleton(() => const SearchInvitations());
+  sl.registerLazySingleton(() => const GetRecentInvitations());
 
   // Source Selection — file picking
   sl.registerLazySingleton<FilePickerRepository>(
