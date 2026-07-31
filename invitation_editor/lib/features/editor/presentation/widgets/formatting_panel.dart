@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
+import '../../../smart_font_matching/domain/entities/font_suggestion.dart';
+import '../../../smart_font_matching/presentation/providers/font_suggestion_provider.dart';
+import '../../../smart_font_matching/presentation/widgets/font_suggestion_banner.dart';
+import '../../domain/entities/invitation_source_file.dart';
 import '../../domain/entities/text_element.dart';
 import '../../domain/entities/text_format.dart';
 import '../providers/editor_canvas_provider.dart';
@@ -24,11 +28,18 @@ import 'text_colour_picker.dart';
 /// second copy of the styling to fall out of step.
 class FormattingPanel extends ConsumerWidget {
   final String elementId;
+
+  /// The invitation being edited, so Smart Font Matching can offer a style
+  /// read from its artwork. Null on a blank card, where there is nothing to
+  /// read.
+  final InvitationSourceFile? sourceFile;
+
   final VoidCallback onClose;
 
   const FormattingPanel({
     super.key,
     required this.elementId,
+    required this.sourceFile,
     required this.onClose,
   });
 
@@ -95,6 +106,14 @@ class FormattingPanel extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _SmartSuggestion(
+                      sourceFile: sourceFile,
+                      element: element,
+                      onApply: (suggestion) => format(
+                        fontFamily: suggestion.fontFamily,
+                        colorValue: suggestion.colorValue,
+                      ),
+                    ),
                     FormattingSection(
                       label: 'Font',
                       child: _FontRow(
@@ -416,5 +435,45 @@ class _FontRow extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+
+/// Smart Font Matching's contribution to the panel (Feature 6.2).
+///
+/// Renders nothing at all when there is no artwork to read, or when the
+/// analyser was not confident. That silence is deliberate: the spec requires
+/// an uncertain reading to fall back to the app default "with no error or
+/// interruption — this should never feel like a failure state to the user."
+class _SmartSuggestion extends ConsumerWidget {
+  final InvitationSourceFile? sourceFile;
+  final TextElement element;
+  final void Function(FontSuggestion suggestion) onApply;
+
+  const _SmartSuggestion({
+    required this.sourceFile,
+    required this.element,
+    required this.onApply,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final file = sourceFile;
+    if (file == null) return const SizedBox.shrink();
+
+    return ref.watch(fontSuggestionProvider(file)).when(
+          loading: () => const ReadingInvitationIndicator(),
+          // Analysis is a convenience; a failure is simply nothing to show.
+          error: (_, __) => const SizedBox.shrink(),
+          data: (suggestion) {
+            if (suggestion == null) return const SizedBox.shrink();
+            return FontSuggestionBanner(
+              suggestion: suggestion,
+              isApplied: element.fontFamily == suggestion.fontFamily &&
+                  element.colorValue == suggestion.colorValue,
+              onApply: () => onApply(suggestion),
+            );
+          },
+        );
   }
 }

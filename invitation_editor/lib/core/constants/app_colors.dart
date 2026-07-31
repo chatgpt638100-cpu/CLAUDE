@@ -17,6 +17,13 @@ class AppColors {
 
   static const Color cardSurface = Color(0xFFFFFFFF); // Pure white
 
+  // "Warm Dark" theme (Screen 7 — App Theme). Warm charcoal and warm ivory
+  // rather than black and white, so the palette rule holds in the dark
+  // theme too.
+  static const Color darkBackground = Color(0xFF221F1C);
+  static const Color darkSurface = Color(0xFF2E2A26);
+  static const Color darkTextPrimary = Color(0xFFF2EDE4);
+
   /// Curated palette offered for invitation text (Screen 4 — "a row of
   /// large circular colour swatches (curated palette, ~12 elegant
   /// colours) plus one 'More Colours' option").

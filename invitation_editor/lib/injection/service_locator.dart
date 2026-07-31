@@ -27,6 +27,15 @@ import '../features/templates/domain/usecases/delete_template.dart';
 import '../features/templates/domain/usecases/get_templates.dart';
 import '../features/templates/domain/usecases/rename_template.dart';
 import '../features/templates/domain/usecases/save_template.dart';
+import '../features/settings/data/repositories/settings_repository_impl.dart';
+import '../features/settings/domain/repositories/settings_repository.dart';
+import '../features/settings/domain/usecases/settings_usecases.dart';
+import '../features/smart_font_matching/data/repositories/style_analysis_repository_impl.dart';
+import '../features/smart_font_matching/domain/repositories/style_analysis_repository.dart';
+import '../features/smart_font_matching/domain/usecases/analyze_invitation_style.dart';
+import '../features/voice_input/data/repositories/voice_input_repository_impl.dart';
+import '../features/voice_input/domain/repositories/voice_input_repository.dart';
+import '../features/voice_input/domain/usecases/apply_voice_input.dart';
 import '../features/editor/data/repositories/invitation_preview_repository_impl.dart';
 import '../features/editor/domain/repositories/invitation_preview_repository.dart';
 import '../features/editor/domain/usecases/add_text_element.dart';
@@ -131,4 +140,28 @@ Future<void> setupServiceLocator() async {
   sl.registerLazySingleton(() => const ReorderTextElement());
   sl.registerLazySingleton(() => const DeleteTextElement());
   sl.registerLazySingleton(() => const RestoreTextElement());
+
+  // Voice typing — on-device speech recognition.
+  // A singleton because the recogniser holds a platform channel; a second
+  // instance would fight the first over the microphone.
+  sl.registerLazySingleton<VoiceInputRepository>(
+    () => VoiceInputRepositoryImpl(),
+  );
+  sl.registerLazySingleton(() => const ApplyVoiceInput());
+
+  // Smart Font Matching — offline image analysis
+  sl.registerLazySingleton<StyleAnalysisRepository>(
+    () => const StyleAnalysisRepositoryImpl(),
+  );
+  sl.registerLazySingleton(() => AnalyzeInvitationStyle(sl()));
+
+  // Settings
+  sl.registerLazySingleton<SettingsRepository>(
+    () => SettingsRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton(() => LoadSettings(sl()));
+  sl.registerLazySingleton(() => SaveSettings(sl()));
+  sl.registerLazySingleton(() => RestoreDefaultSettings(sl()));
+  sl.registerLazySingleton(() => GetStorageUsage(sl()));
+  sl.registerLazySingleton(() => ClearCachedFiles(sl()));
 }

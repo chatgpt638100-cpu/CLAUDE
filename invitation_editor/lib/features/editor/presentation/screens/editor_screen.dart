@@ -72,8 +72,9 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
       context,
       initialValue: project.title,
       title: 'Name this invitation',
-      hintText: 'For example: Amara\'s Birthday',
+      hintText: "For example: Amara's Birthday",
       confirmLabel: 'Save',
+      allowVoiceInput: false,
     );
     if (title == null || !mounted) return;
 

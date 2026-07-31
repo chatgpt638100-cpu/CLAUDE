@@ -332,6 +332,7 @@ class _CanvasViewState extends ConsumerState<CanvasView>
     if (_isFormattingPanelOpen) {
       return FormattingPanel(
         elementId: selected.id,
+        sourceFile: widget.sourceFile,
         onClose: () => setState(() => _isFormattingPanelOpen = false),
       );
     }
