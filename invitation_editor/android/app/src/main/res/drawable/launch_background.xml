@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Warm ivory/cream #FBF7F0 — the app background from the
+         UI/UX spec, Section 1. -->
+    <item android:drawable="@color/ivory_background" />
+</layer-list>
