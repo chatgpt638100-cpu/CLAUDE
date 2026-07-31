@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,18 +10,24 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/pulsing_dot_loader.dart';
 import '../../../../core/widgets/secondary_button.dart';
+import '../../domain/entities/invitation_page.dart';
 import '../../domain/entities/invitation_source_file.dart';
+import '../providers/editor_canvas_provider.dart';
 import '../providers/invitation_preview_provider.dart';
+import 'text_box_widget.dart';
+import 'text_element_toolbar.dart';
+import 'text_input_dialog.dart';
 
 /// Screen 4 — the Editor canvas.
 ///
-/// Shows the first page of the selected invitation: a rasterised page
-/// for a PDF, or the picture itself for a JPG/PNG. The page opens at a
-/// comfortable fit and supports pinch-to-zoom and drag-to-pan, the only
-/// two gestures the spec allows here beyond tap.
+/// Shows the first page of the selected invitation and the text boxes
+/// laid over it. Supports pinch-to-zoom and drag-to-pan, tap-to-add
+/// text, and selecting a box to move, resize, rotate, duplicate,
+/// restack or delete it.
 ///
-/// Still out of scope for this phase: text boxes, the formatting panel,
-/// templates, Smart Font Matching, voice typing, and export/print.
+/// Still out of scope: the formatting panel (font, size, colour,
+/// alignment, bold/italic), voice typing, templates, Smart Font
+/// Matching, and export/print.
 class CanvasView extends ConsumerStatefulWidget {
   final InvitationSourceFile sourceFile;
 
@@ -37,6 +44,10 @@ class _CanvasViewState extends ConsumerState<CanvasView>
   static const double _zoomedEpsilon = 0.01;
 
   final TransformationController _transformation = TransformationController();
+
+  /// Identifies the padded page area, so pointer positions can be
+  /// converted into page coordinates regardless of zoom or pan.
+  final GlobalKey _pageAreaKey = GlobalKey();
 
   late final AnimationController _resetController = AnimationController(
     vsync: this,
@@ -95,6 +106,86 @@ class _CanvasViewState extends ConsumerState<CanvasView>
     }
   }
 
+  /// Converts a global pointer position into page-space pixels, with the
+  /// gutter around the page removed so (0,0) is the page's top-left
+  /// corner. Returns null before the first layout.
+  Offset? _toPageLocal(Offset globalPosition) {
+    final renderObject = _pageAreaKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+
+    final local = renderObject.globalToLocal(globalPosition);
+    return local - const Offset(
+      AppDimensions.canvasGutter,
+      AppDimensions.canvasGutter,
+    );
+  }
+
+  /// Largest size that fits [image]'s proportions inside [available]
+  /// without cropping.
+  Size _fitPage(Size image, Size available) {
+    if (image.width <= 0 || image.height <= 0) return available;
+
+    final scale = math.min(
+      available.width / image.width,
+      available.height / image.height,
+    );
+    return Size(image.width * scale, image.height * scale);
+  }
+
+  EditorCanvasNotifier get _canvas => ref.read(editorCanvasProvider.notifier);
+
+  /// Tapping the page adds a text box — unless something is selected, in
+  /// which case the tap means "I'm done with that one". Without this,
+  /// every attempt to deselect would litter the page with new boxes.
+  Future<void> _handlePageTap(Offset localPosition, Size pageSize) async {
+    if (ref.read(editorCanvasProvider).selectedElementId != null) {
+      _canvas.select(null);
+      return;
+    }
+    await _addTextAt(localPosition, pageSize);
+  }
+
+  Future<void> _addTextAt(Offset localPosition, Size pageSize) async {
+    final content = await showTextInputDialog(context);
+    if (content == null || !mounted) return;
+
+    _canvas.addTextAt(
+      content: content,
+      centreX: localPosition.dx / pageSize.width,
+      centreY: localPosition.dy / pageSize.height,
+    );
+  }
+
+  Future<void> _editSelected(String id, String currentContent) async {
+    final content = await showTextInputDialog(
+      context,
+      initialValue: currentContent,
+    );
+    if (content == null || !mounted) return;
+
+    _canvas.updateContent(id: id, content: content);
+  }
+
+  /// Per the spec, deleting text is undoable from a snackbar rather than
+  /// guarded by a confirmation dialog — safer for an accidental tap and
+  /// far less alarming for a cautious user.
+  void _deleteSelected(String id) {
+    _canvas.delete(id);
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('Text deleted.'),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => _canvas.undoDelete(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final preview = ref.watch(invitationPreviewProvider(widget.sourceFile));
@@ -113,23 +204,108 @@ class _CanvasViewState extends ConsumerState<CanvasView>
             ),
           ),
         ),
-        data: (page) => Column(
-          children: [
-            Expanded(
-              child: InteractiveViewer(
+        data: _buildCanvas,
+      ),
+    );
+  }
+
+  Widget _buildCanvas(InvitationPage page) {
+    final canvas = ref.watch(editorCanvasProvider);
+    final selected = canvas.selectedElement;
+
+    return Column(
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const gutter = AppDimensions.canvasGutter;
+
+              // Fit the page inside the space that remains once the
+              // gutter is reserved, so the padded area never exceeds the
+              // viewport — InteractiveViewer would otherwise clamp it.
+              final pageSize = _fitPage(
+                Size(page.widthPx.toDouble(), page.heightPx.toDouble()),
+                Size(
+                  math.max(constraints.maxWidth - gutter * 2, 1),
+                  math.max(constraints.maxHeight - gutter * 2, 1),
+                ),
+              );
+
+              return InteractiveViewer(
                 transformationController: _transformation,
                 minScale: AppDimensions.canvasMinScale,
                 maxScale: AppDimensions.canvasMaxScale,
                 child: Center(
-                  child: _PageSurface(imageBytes: page.imageBytes),
+                  child: SizedBox(
+                    key: _pageAreaKey,
+                    width: pageSize.width + gutter * 2,
+                    height: pageSize.height + gutter * 2,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned(
+                          left: gutter,
+                          top: gutter,
+                          width: pageSize.width,
+                          height: pageSize.height,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTapUp: (details) => _handlePageTap(
+                              details.localPosition,
+                              pageSize,
+                            ),
+                            child: _PageSurface(imageBytes: page.imageBytes),
+                          ),
+                        ),
+                        for (final element in canvas.elements)
+                          TextBoxWidget(
+                            key: ValueKey(element.id),
+                            element: element,
+                            isSelected: element.id == canvas.selectedElementId,
+                            pageSize: pageSize,
+                            gutter: gutter,
+                            toPageLocal: _toPageLocal,
+                            onSelect: () => _canvas.select(element.id),
+                            onMove: (dx, dy) => _canvas.move(
+                              id: element.id,
+                              deltaX: dx,
+                              deltaY: dy,
+                            ),
+                            onResize: (factor) => _canvas.resize(
+                              id: element.id,
+                              factor: factor,
+                            ),
+                            onRotate: (rotation) => _canvas.rotate(
+                              id: element.id,
+                              rotation: rotation,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: AppDimensions.spaceM),
-            _CanvasFooter(isZoomed: _isZoomed, onResetView: _resetView),
-          ],
+              );
+            },
+          ),
         ),
-      ),
+        const SizedBox(height: AppDimensions.spaceM),
+        AnimatedSize(
+          duration: AppDimensions.animationFast,
+          curve: Curves.easeInOut,
+          child: selected == null
+              ? _IdleFooter(
+                  isZoomed: _isZoomed,
+                  onResetView: _resetView,
+                )
+              : TextElementToolbar(
+                  onEdit: () => _editSelected(selected.id, selected.content),
+                  onDuplicate: () => _canvas.duplicate(selected.id),
+                  onBringToFront: () => _canvas.bringToFront(selected.id),
+                  onSendToBack: () => _canvas.sendToBack(selected.id),
+                  onDelete: () => _deleteSelected(selected.id),
+                ),
+        ),
+      ],
     );
   }
 
@@ -142,16 +318,13 @@ class _CanvasViewState extends ConsumerState<CanvasView>
   }
 }
 
-/// Below the canvas: a quiet hint about the available gestures, which
-/// swaps to a labeled "Reset View" button once the user has zoomed.
-///
-/// Fixed height so the canvas above never shifts as it changes, and a
-/// soft cross-fade rather than a pop.
-class _CanvasFooter extends StatelessWidget {
+/// Shown when no text box is selected: how to add text and work the
+/// canvas, or a way back from a zoomed-in view.
+class _IdleFooter extends StatelessWidget {
   final bool isZoomed;
   final VoidCallback onResetView;
 
-  const _CanvasFooter({required this.isZoomed, required this.onResetView});
+  const _IdleFooter({required this.isZoomed, required this.onResetView});
 
   @override
   Widget build(BuildContext context) {
@@ -169,7 +342,7 @@ class _CanvasFooter extends StatelessWidget {
                   onPressed: onResetView,
                 )
               : Text(
-                  'Pinch to zoom · Drag to move',
+                  'Tap the invitation to add text · Pinch to zoom',
                   key: const ValueKey('hint'),
                   style: Theme.of(context).textTheme.bodySmall,
                   textAlign: TextAlign.center,
@@ -232,9 +405,6 @@ class _PageSurface extends StatelessWidget {
           imageBytes,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.medium,
-          // Catches bytes that decode badly (a corrupt or truncated
-          // image) — the repository can only detect a missing or
-          // unreadable file, not one that fails at decode time.
           errorBuilder: (context, error, stackTrace) => _CanvasMessage(
             message: const PreviewRenderFailure().message,
           ),

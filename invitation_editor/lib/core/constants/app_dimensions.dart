@@ -42,4 +42,24 @@ class AppDimensions {
   // get lost in a wall of pixels.
   static const double canvasMinScale = 1;
   static const double canvasMaxScale = 4;
+
+  // Text boxes on the canvas.
+  // The handle a user sees is small and unobtrusive; the area that
+  // actually responds to touch is far larger, comfortably above the
+  // 48dp accessibility minimum.
+  static const double textBoxHandleVisualSize = 14;
+  static const double textBoxHandleTouchSize = 48;
+  static const double textBoxBorderWidth = 2;
+  static const double textBoxRotationHandleGap = 28;
+
+  // Breathing room reserved around the page so handles belonging to a
+  // box at the very edge remain on-screen and tappable.
+  //
+  // Must be at least the rotation handle's reach plus half a touch
+  // target (28 + 24 = 52), otherwise that handle lands outside the
+  // hit-testable area and silently stops working.
+  static const double canvasGutter = 56;
+
+  // Selection toolbar actions — wide enough for a two-word label.
+  static const double toolbarActionMinWidth = 68;
 }

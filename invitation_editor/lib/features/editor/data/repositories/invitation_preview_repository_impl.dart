@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:printing/printing.dart';
 
@@ -16,14 +17,14 @@ import '../../domain/repositories/invitation_preview_repository.dart';
 /// "Printing & PDF preview — can render PDF pages for preview,
 /// offline-compatible".
 ///
-/// Why rasterise rather than embed a PDF viewer widget: the canvas will
-/// later carry draggable text boxes on top of the page, so it needs a
-/// plain static bitmap it fully controls — not a third-party viewer
-/// bringing its own scroll and zoom gestures. It also keeps the app
-/// free of an extra viewer dependency and its licensing.
+/// Why rasterise rather than embed a PDF viewer widget: the canvas
+/// carries draggable text boxes on top of the page, so it needs a plain
+/// static bitmap it fully controls — not a third-party viewer bringing
+/// its own scroll and zoom gestures. It also keeps the app free of an
+/// extra viewer dependency and its licensing.
 ///
-/// This is the only place in the app that knows about `printing` or
-/// touches `dart:io` for previews.
+/// This is the only place in the app that knows about `printing`, or
+/// touches `dart:io` and `dart:ui` for previews.
 class InvitationPreviewRepositoryImpl implements InvitationPreviewRepository {
   const InvitationPreviewRepositoryImpl();
 
@@ -52,10 +53,10 @@ class InvitationPreviewRepositoryImpl implements InvitationPreviewRepository {
 
       switch (sourceFile.type) {
         case InvitationFileType.pdf:
-          return InvitationPage(imageBytes: await _rasterisePdfFirstPage(bytes));
+          return _rasterisePdfFirstPage(bytes);
         case InvitationFileType.image:
-          // A JPG/PNG is already displayable — no conversion needed.
-          return InvitationPage(imageBytes: bytes);
+          // A JPG/PNG is already displayable — it only needs measuring.
+          return _measureImage(bytes);
       }
     } on Failure {
       // Already a friendly, user-facing failure — pass it through
@@ -66,18 +67,52 @@ class InvitationPreviewRepositoryImpl implements InvitationPreviewRepository {
     }
   }
 
-  /// Rasterises the first page of a PDF into PNG bytes.
-  Future<Uint8List> _rasterisePdfFirstPage(Uint8List documentBytes) async {
+  /// Rasterises the first page of a PDF into PNG bytes, keeping the pixel
+  /// dimensions the rasteriser reports.
+  Future<InvitationPage> _rasterisePdfFirstPage(Uint8List documentBytes) async {
     await for (final page in Printing.raster(
       documentBytes,
       pages: _firstPageOnly,
       dpi: _previewDpi,
     )) {
-      return page.toPng();
+      return InvitationPage(
+        imageBytes: await page.toPng(),
+        widthPx: page.width,
+        heightPx: page.height,
+      );
     }
 
     // Stream completed without yielding a page — e.g. a PDF with no
     // pages, or one the platform rasteriser could not read.
     throw const PreviewRenderFailure();
+  }
+
+  /// Reads an uploaded image's true pixel size.
+  ///
+  /// Decoding here rather than at paint time means a corrupt or
+  /// truncated file surfaces as a friendly [PreviewRenderFailure] with a
+  /// retry, instead of a broken widget once the canvas is already open.
+  /// The decoded frame is disposed immediately — only the numbers are
+  /// kept, and the original bytes go to the canvas untouched.
+  Future<InvitationPage> _measureImage(Uint8List bytes) async {
+    final codec = await ui.instantiateImageCodec(bytes);
+    try {
+      final frame = await codec.getNextFrame();
+      final width = frame.image.width;
+      final height = frame.image.height;
+      frame.image.dispose();
+
+      if (width <= 0 || height <= 0) {
+        throw const PreviewRenderFailure();
+      }
+
+      return InvitationPage(
+        imageBytes: bytes,
+        widthPx: width,
+        heightPx: height,
+      );
+    } finally {
+      codec.dispose();
+    }
   }
 }

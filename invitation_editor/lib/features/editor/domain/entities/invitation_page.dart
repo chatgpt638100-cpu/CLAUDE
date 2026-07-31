@@ -16,11 +16,29 @@ class InvitationPage extends Equatable {
   /// original bytes for an uploaded JPG/PNG).
   final Uint8List imageBytes;
 
-  const InvitationPage({required this.imageBytes});
+  /// Pixel dimensions of the rendered page.
+  ///
+  /// The canvas needs these to lay the page out at its true proportions,
+  /// which in turn fixes the frame that text box positions are measured
+  /// against. Without them, text would drift relative to the artwork on
+  /// differently shaped screens.
+  final int widthPx;
+  final int heightPx;
 
-  /// Compared by identity rather than by content: every render produces
-  /// a fresh instance, and comparing megabytes of pixels on every
-  /// rebuild would be wasteful.
+  const InvitationPage({
+    required this.imageBytes,
+    required this.widthPx,
+    required this.heightPx,
+  });
+
+  /// Width divided by height. Guarded so a malformed page can never
+  /// produce a zero or infinite ratio for the layout to choke on.
+  double get aspectRatio =>
+      (widthPx <= 0 || heightPx <= 0) ? 1 : widthPx / heightPx;
+
+  /// Compared by identity for the bytes rather than by content: every
+  /// render produces a fresh instance, and comparing megabytes of pixels
+  /// on every rebuild would be wasteful.
   @override
-  List<Object?> get props => [imageBytes];
+  List<Object?> get props => [imageBytes, widthPx, heightPx];
 }
