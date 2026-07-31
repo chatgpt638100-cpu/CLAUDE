@@ -83,3 +83,7 @@ flutter:
   assets:
     - assets/images/
     - assets/templates/
+    # Bundled Google Fonts. The app has no INTERNET permission, so
+    # google_fonts runs with runtime fetching disabled and loads font
+    # files from here instead. See google_fonts/README.md.
+    - google_fonts/

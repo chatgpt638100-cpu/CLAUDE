@@ -1,12 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_fonts.dart';
 import '../../../../core/utils/id_generator.dart';
 import '../../../../injection/service_locator.dart';
 import '../../domain/entities/editor_canvas.dart';
 import '../../domain/entities/text_element.dart';
 import '../../domain/usecases/add_text_element.dart';
 import '../../domain/usecases/delete_text_element.dart';
+import '../../domain/entities/text_format.dart';
 import '../../domain/usecases/duplicate_text_element.dart';
+import '../../domain/usecases/format_text_element.dart';
 import '../../domain/usecases/move_text_element.dart';
 import '../../domain/usecases/reorder_text_element.dart';
 import '../../domain/usecases/resize_text_element.dart';
@@ -41,6 +44,40 @@ class EditorCanvasNotifier extends AutoDisposeNotifier<EditorCanvas> {
       content: content,
       centreX: centreX,
       centreY: centreY,
+      fontFamily: AppFonts.defaultFamily,
+    );
+  }
+
+  /// Restyles a box. Any argument left null leaves that property alone,
+  /// so the panel can send a single change at a time.
+  void format({
+    required String id,
+    String? fontFamily,
+    double? fontSize,
+    int? colorValue,
+    bool? isBold,
+    bool? isItalic,
+    bool? isUnderlined,
+    TextAlignmentOption? alignment,
+    double? letterSpacing,
+    double? lineHeight,
+    double? opacity,
+    TextShadowStyle? shadow,
+  }) {
+    state = sl<FormatTextElement>()(
+      state,
+      id: id,
+      fontFamily: fontFamily,
+      fontSize: fontSize,
+      colorValue: colorValue,
+      isBold: isBold,
+      isItalic: isItalic,
+      isUnderlined: isUnderlined,
+      alignment: alignment,
+      letterSpacing: letterSpacing,
+      lineHeight: lineHeight,
+      opacity: opacity,
+      shadow: shadow,
     );
   }
 

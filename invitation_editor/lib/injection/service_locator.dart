@@ -6,6 +6,7 @@ import '../features/editor/domain/repositories/invitation_preview_repository.dar
 import '../features/editor/domain/usecases/add_text_element.dart';
 import '../features/editor/domain/usecases/delete_text_element.dart';
 import '../features/editor/domain/usecases/duplicate_text_element.dart';
+import '../features/editor/domain/usecases/format_text_element.dart';
 import '../features/editor/domain/usecases/load_invitation_preview.dart';
 import '../features/editor/domain/usecases/move_text_element.dart';
 import '../features/editor/domain/usecases/reorder_text_element.dart';
@@ -45,6 +46,7 @@ Future<void> setupServiceLocator() async {
   // the canvas state, so they hold no dependencies of their own.
   sl.registerLazySingleton(() => const AddTextElement());
   sl.registerLazySingleton(() => const UpdateTextContent());
+  sl.registerLazySingleton(() => const FormatTextElement());
   sl.registerLazySingleton(() => const SelectTextElement());
   sl.registerLazySingleton(() => const MoveTextElement());
   sl.registerLazySingleton(() => const ResizeTextElement());

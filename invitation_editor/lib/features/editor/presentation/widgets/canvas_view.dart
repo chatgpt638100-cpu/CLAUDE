@@ -12,8 +12,10 @@ import '../../../../core/widgets/pulsing_dot_loader.dart';
 import '../../../../core/widgets/secondary_button.dart';
 import '../../domain/entities/invitation_page.dart';
 import '../../domain/entities/invitation_source_file.dart';
+import '../../domain/entities/text_element.dart';
 import '../providers/editor_canvas_provider.dart';
 import '../providers/invitation_preview_provider.dart';
+import 'formatting_panel.dart';
 import 'text_box_widget.dart';
 import 'text_element_toolbar.dart';
 import 'text_input_dialog.dart';
@@ -56,6 +58,11 @@ class _CanvasViewState extends ConsumerState<CanvasView>
 
   Animation<Matrix4>? _resetAnimation;
   bool _isZoomed = false;
+
+  /// Whether the formatting panel is open. Local widget state rather than
+  /// a provider: it is pure view state with no bearing on the invitation
+  /// itself, and nothing outside this screen needs to read it.
+  bool _isFormattingPanelOpen = false;
 
   @override
   void initState() {
@@ -140,6 +147,7 @@ class _CanvasViewState extends ConsumerState<CanvasView>
   Future<void> _handlePageTap(Offset localPosition, Size pageSize) async {
     if (ref.read(editorCanvasProvider).selectedElementId != null) {
       _canvas.select(null);
+      setState(() => _isFormattingPanelOpen = false);
       return;
     }
     await _addTextAt(localPosition, pageSize);
@@ -171,6 +179,7 @@ class _CanvasViewState extends ConsumerState<CanvasView>
   /// far less alarming for a cautious user.
   void _deleteSelected(String id) {
     _canvas.delete(id);
+    setState(() => _isFormattingPanelOpen = false);
 
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
@@ -289,23 +298,38 @@ class _CanvasViewState extends ConsumerState<CanvasView>
           ),
         ),
         const SizedBox(height: AppDimensions.spaceM),
+        // One animated container for all three footer states, so opening
+        // the panel or selecting a box eases the canvas into its new
+        // height rather than snapping.
         AnimatedSize(
-          duration: AppDimensions.animationFast,
+          duration: AppDimensions.animationSlow,
           curve: Curves.easeInOut,
-          child: selected == null
-              ? _IdleFooter(
-                  isZoomed: _isZoomed,
-                  onResetView: _resetView,
-                )
-              : TextElementToolbar(
-                  onEdit: () => _editSelected(selected.id, selected.content),
-                  onDuplicate: () => _canvas.duplicate(selected.id),
-                  onBringToFront: () => _canvas.bringToFront(selected.id),
-                  onSendToBack: () => _canvas.sendToBack(selected.id),
-                  onDelete: () => _deleteSelected(selected.id),
-                ),
+          alignment: Alignment.topCenter,
+          child: _buildFooter(selected),
         ),
       ],
+    );
+  }
+
+  Widget _buildFooter(TextElement? selected) {
+    if (selected == null) {
+      return _IdleFooter(isZoomed: _isZoomed, onResetView: _resetView);
+    }
+
+    if (_isFormattingPanelOpen) {
+      return FormattingPanel(
+        elementId: selected.id,
+        onClose: () => setState(() => _isFormattingPanelOpen = false),
+      );
+    }
+
+    return TextElementToolbar(
+      onEdit: () => _editSelected(selected.id, selected.content),
+      onFormat: () => setState(() => _isFormattingPanelOpen = true),
+      onDuplicate: () => _canvas.duplicate(selected.id),
+      onBringToFront: () => _canvas.bringToFront(selected.id),
+      onSendToBack: () => _canvas.sendToBack(selected.id),
+      onDelete: () => _deleteSelected(selected.id),
     );
   }
 

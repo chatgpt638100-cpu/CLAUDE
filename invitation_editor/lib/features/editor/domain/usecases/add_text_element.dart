@@ -10,18 +10,23 @@ import '../entities/text_element.dart';
 class AddTextElement {
   const AddTextElement();
 
+  /// [fontFamily] is supplied by the caller rather than hard-coded here,
+  /// so the presentation layer stays the single owner of which font
+  /// families exist.
   EditorCanvas call(
     EditorCanvas canvas, {
     required String id,
     required String content,
     required double centreX,
     required double centreY,
+    required String fontFamily,
   }) {
     final element = TextElement.centredAt(
       id: id,
       content: content,
       centreX: centreX.clamp(0.0, 1.0).toDouble(),
       centreY: centreY.clamp(0.0, 1.0).toDouble(),
+      fontFamily: fontFamily,
     );
 
     return canvas.copyWith(

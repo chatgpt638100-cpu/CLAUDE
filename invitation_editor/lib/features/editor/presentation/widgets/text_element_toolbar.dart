@@ -15,6 +15,7 @@ import '../../../../core/constants/app_dimensions.dart';
 /// touch target above the 48dp minimum.
 class TextElementToolbar extends StatelessWidget {
   final VoidCallback onEdit;
+  final VoidCallback onFormat;
   final VoidCallback onDuplicate;
   final VoidCallback onBringToFront;
   final VoidCallback onSendToBack;
@@ -23,6 +24,7 @@ class TextElementToolbar extends StatelessWidget {
   const TextElementToolbar({
     super.key,
     required this.onEdit,
+    required this.onFormat,
     required this.onDuplicate,
     required this.onBringToFront,
     required this.onSendToBack,
@@ -40,6 +42,11 @@ class TextElementToolbar extends StatelessWidget {
           icon: Icons.edit_outlined,
           label: 'Edit Text',
           onPressed: onEdit,
+        ),
+        _ToolbarAction(
+          icon: Icons.text_format,
+          label: 'Style',
+          onPressed: onFormat,
         ),
         _ToolbarAction(
           icon: Icons.copy_outlined,

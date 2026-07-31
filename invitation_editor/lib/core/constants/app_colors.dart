@@ -16,4 +16,27 @@ class AppColors {
   static const Color danger = Color(0xFFB5654F); // Soft terracotta red
 
   static const Color cardSurface = Color(0xFFFFFFFF); // Pure white
+
+  /// Curated palette offered for invitation text (Screen 4 — "a row of
+  /// large circular colour swatches (curated palette, ~12 elegant
+  /// colours) plus one 'More Colours' option").
+  ///
+  /// Deliberately muted and warm, in keeping with "no pure black, no
+  /// neon" — every one of these sits comfortably on ivory or white
+  /// stationery. Anything outside this set is still reachable through
+  /// "More Colours".
+  static const List<Color> textPalette = <Color>[
+    Color(0xFF3A3532), // Near-black warm gray (default)
+    Color(0xFF2E2A26), // Soft charcoal
+    Color(0xFF8C8275), // Muted taupe
+    Color(0xFFC6A15B), // Deep champagne gold
+    Color(0xFF8C6B3F), // Antique bronze
+    Color(0xFFB5654F), // Soft terracotta
+    Color(0xFF7B2D3B), // Burgundy
+    Color(0xFF6B4463), // Dusty plum
+    Color(0xFF2F4156), // Deep navy
+    Color(0xFF3E6B68), // Deep teal
+    Color(0xFF7A9471), // Muted sage
+    Color(0xFFFFFFFF), // White, for dark invitations
+  ];
 }

@@ -62,4 +62,16 @@ class AppDimensions {
 
   // Selection toolbar actions — wide enough for a two-word label.
   static const double toolbarActionMinWidth = 68;
+
+  // Formatting panel.
+  // Stepper buttons and swatches are sized as primary controls, not as
+  // the cramped inline widgets the spec warns against.
+  static const double stepperButtonSize = 56;
+  static const double chipMinWidth = 88;
+  static const double colourSwatchSize = 36;
+
+  // Live preview strip: fixed height so the panel below it never jumps
+  // as the text restyles.
+  static const double formattingPreviewHeight = 72;
+  static const double formattingPreviewFontSize = 30;
 }

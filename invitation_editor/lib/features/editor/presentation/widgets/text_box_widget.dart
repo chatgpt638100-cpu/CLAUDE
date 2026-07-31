@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimensions.dart';
 import '../../domain/entities/text_element.dart';
+import '../text_element_style.dart';
 
 /// Which handle a drag started on.
 enum _DragTarget { body, resize, rotate }
@@ -196,18 +197,25 @@ class _TextBoxWidgetState extends State<TextBoxWidget> {
           ),
           child: ClipRect(
             child: Center(
-              child: Text(
-                widget.element.content,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  // The spec's fallback style for text on an invitation:
-                  // serif, charcoal. Font, colour and alignment become
-                  // user-controllable with the formatting panel.
-                  fontFamily: 'PlayfairDisplay',
-                  color: AppColors.textPrimary,
-                  fontSize:
-                      widget.element.fontSize * widget.pageSize.height,
-                  height: 1.2,
+              child: Opacity(
+                opacity: widget.element.opacity,
+                child: SizedBox(
+                  // Full width so textAlign has room to take effect —
+                  // otherwise the text block would shrink-wrap and
+                  // "left" would look identical to "centre".
+                  width: double.infinity,
+                  child: AnimatedDefaultTextStyle(
+                    duration: AppDimensions.animationFast,
+                    curve: Curves.easeInOut,
+                    style: widget.element.toTextStyle(
+                      fontSizePx:
+                          widget.element.fontSize * widget.pageSize.height,
+                    ),
+                    child: Text(
+                      widget.element.content,
+                      textAlign: widget.element.textAlign,
+                    ),
+                  ),
                 ),
               ),
             ),
