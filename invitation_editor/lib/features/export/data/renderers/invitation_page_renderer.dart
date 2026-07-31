@@ -180,7 +180,13 @@ class InvitationPageRenderer {
           height: (painter.height + fontSizePx) * 2,
         ),
         ui.Paint()
-          ..color = ui.Color.fromRGBO(0, 0, 0, element.opacity.clamp(0.0, 1.0)),
+          ..color = ui.Color.fromRGBO(
+            0,
+            0,
+            0,
+            // toDouble() matters: num.clamp returns num.
+            element.opacity.clamp(0.0, 1.0).toDouble(),
+          ),
       );
     }
 

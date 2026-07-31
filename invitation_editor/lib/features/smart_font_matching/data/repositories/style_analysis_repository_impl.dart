@@ -39,17 +39,28 @@ class StyleAnalysisRepositoryImpl implements StyleAnalysisRepository {
 
   @override
   Future<FontSuggestion?> analyse(Uint8List pageImageBytes) async {
+    // Catches a typo in the style-to-font mapping during development: a
+    // family missing from the catalogue would silently render as the
+    // fallback serif, making the suggestion a lie. Debug-only, so it costs
+    // nothing in release.
+    assert(
+      isCatalogueConsistent,
+      'Every suggested font must exist in AppFonts.catalogue',
+    );
+
     // Decoding and scanning a page is heavy enough to drop frames. Run it on
     // a background isolate so the canvas stays responsive while the
     // "Reading your invitation…" indicator shows.
     final reading = await compute(_analysePage, pageImageBytes);
-    if (reading == null) return null;
+    if (reading == null || reading.length != 3) return null;
+
+    final styleClass = TextStyleClass.values[reading[0]];
 
     return FontSuggestion(
-      styleClass: TextStyleClass.values[reading.styleIndex],
-      fontFamily: _familyFor(TextStyleClass.values[reading.styleIndex]),
-      colorValue: reading.colorValue,
-      confidence: SuggestionConfidence.values[reading.confidenceIndex],
+      styleClass: styleClass,
+      fontFamily: _familyFor(styleClass),
+      colorValue: reading[1],
+      confidence: SuggestionConfidence.values[reading[2]],
     );
   }
 
@@ -67,21 +78,13 @@ class StyleAnalysisRepositoryImpl implements StyleAnalysisRepository {
       .every((style) => AppFonts.catalogue.contains(_familyFor(style)));
 }
 
-/// Primitive-only result, so it crosses the isolate boundary cheaply.
-class _StyleReading {
-  final int styleIndex;
-  final int colorValue;
-  final int confidenceIndex;
-
-  const _StyleReading({
-    required this.styleIndex,
-    required this.colorValue,
-    required this.confidenceIndex,
-  });
-}
-
 /// Top-level so it can run under [compute].
-_StyleReading? _analysePage(Uint8List bytes) {
+///
+/// Returns `[styleIndex, colorValue, confidenceIndex]` rather than a custom
+/// class: a plain `List<int>` is trivially sendable across the isolate
+/// boundary, with no dependence on how a particular Dart version handles
+/// sending arbitrary objects.
+List<int>? _analysePage(Uint8List bytes) {
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
 
@@ -193,11 +196,7 @@ _StyleReading? _analysePage(Uint8List bytes) {
     confidence = SuggestionConfidence.low;
   }
 
-  return _StyleReading(
-    styleIndex: styleClass.index,
-    colorValue: colorValue,
-    confidenceIndex: confidence.index,
-  );
+  return <int>[styleClass.index, colorValue, confidence.index];
 }
 
 double _brightness(img.Pixel pixel) {

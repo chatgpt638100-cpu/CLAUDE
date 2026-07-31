@@ -151,8 +151,12 @@ class EditorSessionState {
 
   const EditorSessionState.loading() : project = null, isSaving = false;
 
-  const EditorSessionState.ready(InvitationProject this.project)
-      : isSaving = false;
+  /// Takes a plain parameter rather than a typed initialising formal
+  /// (`InvitationProject this.project`), which narrows a nullable field and
+  /// is not portable across Dart versions.
+  const EditorSessionState.ready(InvitationProject openProject)
+      : project = openProject,
+        isSaving = false;
 
   bool get isReady => project != null;
 

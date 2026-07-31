@@ -199,7 +199,9 @@ class _MicButtonState extends State<_MicButton>
           ? Tween<double>(begin: 0.55, end: 1).animate(
               CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
             )
-          : const AlwaysStoppedAnimation(1),
+          // Explicit type argument: without it this infers
+          // AlwaysStoppedAnimation<int>, which FadeTransition rejects.
+          : const AlwaysStoppedAnimation<double>(1),
       child: TextButton.icon(
         onPressed: widget.onPressed,
         style: TextButton.styleFrom(

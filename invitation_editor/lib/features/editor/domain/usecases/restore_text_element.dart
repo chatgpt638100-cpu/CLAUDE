@@ -15,7 +15,9 @@ class RestoreTextElement {
     final elements = [...canvas.elements];
     // The list may have changed since the delete, so clamp rather than
     // trusting the old index blindly.
-    final insertAt = index.clamp(0, elements.length);
+    // toInt() matters: num.clamp returns num, which will not assign to the
+    // int that List.insert expects.
+    final insertAt = index.clamp(0, elements.length).toInt();
     elements.insert(insertAt, element);
 
     return canvas.copyWith(

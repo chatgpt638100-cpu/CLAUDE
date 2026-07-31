@@ -45,9 +45,17 @@ class VoiceInputState {
 class VoiceInputNotifier extends AutoDisposeNotifier<VoiceInputState> {
   VoiceInputRepository get _repository => sl<VoiceInputRepository>();
 
+  /// Tracked explicitly rather than using `ref.mounted`, which only exists in
+  /// newer Riverpod 2.x releases. The recogniser fires callbacks from the
+  /// platform after the dialog may already have closed, and writing to a
+  /// disposed notifier throws.
+  bool _isDisposed = false;
+
   @override
   VoiceInputState build() {
+    _isDisposed = false;
     ref.onDispose(() {
+      _isDisposed = true;
       if (_repository.isListening) _repository.cancel();
     });
     return const VoiceInputState();
@@ -61,12 +69,12 @@ class VoiceInputNotifier extends AutoDisposeNotifier<VoiceInputState> {
     await _repository.start(
       onTranscript: (transcript, isFinal) {
         // Guard against a late callback arriving after the dialog closed.
-        if (!ref.mounted) return;
+        if (_isDisposed) return;
         state = state.copyWith(transcript: transcript);
         if (isFinal) _settle();
       },
       onError: (message) {
-        if (!ref.mounted) return;
+        if (_isDisposed) return;
         state = state.copyWith(
           status: VoiceInputStatus.unavailable,
           errorMessage: message,
@@ -77,7 +85,7 @@ class VoiceInputNotifier extends AutoDisposeNotifier<VoiceInputState> {
 
   Future<void> stopListening() async {
     await _repository.stop();
-    if (!ref.mounted) return;
+    if (_isDisposed) return;
     _settle();
   }
 

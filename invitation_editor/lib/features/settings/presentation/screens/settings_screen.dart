@@ -9,6 +9,7 @@ import '../../../../core/utils/date_formatting.dart';
 import '../../../../core/widgets/app_bar_widget.dart';
 import '../../../../core/widgets/app_dialog.dart';
 import '../../../../core/widgets/pulsing_dot_loader.dart';
+import '../../../../core/widgets/secondary_button.dart';
 import '../../../../injection/service_locator.dart';
 import '../../domain/entities/app_settings.dart';
 import '../../domain/usecases/settings_usecases.dart';
@@ -86,46 +87,65 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) _showMessage('Settings restored.');
   }
 
+  /// A sheet rather than an [AppDialog]: AppDialog always renders a confirm
+  /// *and* a cancel button, and an informational page needs exactly one way
+  /// out. Two buttons that do the same thing is a small confusion this
+  /// audience does not need.
   void _showAbout() {
-    showDialog<void>(
+    showModalBottomSheet<void>(
       context: context,
-      builder: (dialogContext) => AppDialog(
-        title: 'About ${AppInfo.appName}',
-        confirmLabel: 'Close',
-        cancelLabel: 'Done',
-        onConfirm: () => Navigator.of(dialogContext).pop(),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Version ${AppInfo.version}',
-              style: Theme.of(dialogContext).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppDimensions.spaceM),
-            Row(
-              children: [
-                const Icon(
-                  Icons.lock_outline,
-                  size: 20,
-                  color: AppColors.success,
-                ),
-                const SizedBox(width: AppDimensions.spaceS),
-                Text(
-                  'Offline only',
-                  style: Theme.of(dialogContext)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppDimensions.spaceS),
-            Text(
-              AppInfo.privacySummary,
-              style: Theme.of(dialogContext).textTheme.bodySmall,
-            ),
-          ],
+      backgroundColor: Theme.of(context).cardTheme.color,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimensions.cardRadius),
+        ),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimensions.spaceL),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                AppInfo.appName,
+                style: Theme.of(sheetContext).textTheme.headlineMedium,
+              ),
+              const SizedBox(height: AppDimensions.spaceXS),
+              Text(
+                'Version ${AppInfo.version}',
+                style: Theme.of(sheetContext).textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppDimensions.spaceL),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 20,
+                    color: AppColors.success,
+                  ),
+                  const SizedBox(width: AppDimensions.spaceS),
+                  Text(
+                    'Offline only',
+                    style: Theme.of(sheetContext)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppDimensions.spaceS),
+              Text(
+                AppInfo.privacySummary,
+                style: Theme.of(sheetContext).textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppDimensions.spaceL),
+              SecondaryButton(
+                label: 'Close',
+                onPressed: () => Navigator.of(sheetContext).pop(),
+              ),
+            ],
+          ),
         ),
       ),
     );

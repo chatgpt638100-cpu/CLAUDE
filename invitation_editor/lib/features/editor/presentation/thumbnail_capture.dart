@@ -30,7 +30,10 @@ class ThumbnailCapture {
 
       // Scale so the output lands near targetWidth whatever the screen
       // size, and never upscale a small canvas.
-      final pixelRatio = (targetWidth / logicalWidth).clamp(0.5, 3.0);
+      // toDouble() matters: num.clamp returns num, which will not assign to
+      // the double that toImage expects.
+      final pixelRatio =
+          (targetWidth / logicalWidth).clamp(0.5, 3.0).toDouble();
 
       final image = await renderObject.toImage(pixelRatio: pixelRatio);
       try {
