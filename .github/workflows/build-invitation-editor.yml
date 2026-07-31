@@ -1,11 +1,14 @@
 name: Build Invitation Editor APK
 
 # Builds the Flutter app on GitHub's runners, which have the network access
-# needed to fetch the Flutter SDK and pub packages. Produces a downloadable
-# APK and, when the build fails, the exact analyzer and compiler output.
+# needed to fetch the Flutter SDK and pub packages. The development sandbox
+# has neither, so this is the only place the app gets compiled.
 #
-# Run it manually from the Actions tab, or let it run on pushes touching the
-# app.
+# On success it publishes the APK to a rolling "app-preview" release, which
+# gives a stable download URL that can be opened directly on a phone —
+# unlike a build artifact, which has no permanent link.
+#
+# On failure the job log carries the precise analyzer and compiler output.
 on:
   workflow_dispatch:
   push:
@@ -13,15 +16,14 @@ on:
       - 'invitation_editor/**'
       - '.github/workflows/build-invitation-editor.yml'
 
+# contents: write is needed to publish the release below. Nothing else is
+# granted, and no other secret is referenced.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: invitation_editor
 
     steps:
       - uses: actions/checkout@v4
@@ -40,21 +42,51 @@ jobs:
         run: flutter --version
 
       - name: Resolve dependencies
+        working-directory: invitation_editor
         run: flutter pub get
 
-      # Reported but not fatal: lint findings should not hide a working build.
+      # Reported but not fatal: lint findings must not hide a working build.
       - name: Analyze
+        working-directory: invitation_editor
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
         continue-on-error: true
 
-      # The real gate. Its log is what identifies any remaining compile error.
-      - name: Build debug APK
-        run: flutter build apk --debug
+      # The real gate. Release rather than debug so the download is a
+      # reasonable size and runs at normal speed; it is signed with the debug
+      # key, which installs fine on a phone but is not Play Store ready.
+      - name: Build release APK
+        working-directory: invitation_editor
+        run: flutter build apk --release
 
-      - name: Upload APK
-        if: success()
+      - name: Name the APK
+        working-directory: invitation_editor
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             dist/invitation-editor.apk
+          ls -lh dist/invitation-editor.apk
+
+      # Kept as well as the release, so the APK is still reachable from the
+      # run page if publishing is ever disabled.
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: invitation-editor-debug-apk
-          path: invitation_editor/build/app/outputs/flutter-apk/app-debug.apk
+          name: invitation-editor-apk
+          path: invitation_editor/dist/invitation-editor.apk
           if-no-files-found: error
+
+      # A single rolling tag that is overwritten each build, so the download
+      # URL never changes.
+      - name: Publish to app-preview release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete app-preview --yes --cleanup-tag || true
+          gh release create app-preview \
+            invitation_editor/dist/invitation-editor.apk \
+            --title "Invitation Editor — preview build" \
+            --prerelease \
+            --notes "Debug-signed preview APK built from ${GITHUB_SHA}.
+          Install on Android: open this page on your phone, download the APK,
+          and allow installation from your browser when prompted.
+          Not signed for the Play Store."
